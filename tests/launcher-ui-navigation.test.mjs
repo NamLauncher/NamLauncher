@@ -9,7 +9,7 @@ import {
   getInstanceModsLibraryNavigation
 } from '../src/instanceSelection.ts'
 
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 const appTextSource = await readFile(new URL('../src/appText.ts', import.meta.url), 'utf8')
 const appCss = await readFile(new URL('../src/index.css', import.meta.url), 'utf8')
 

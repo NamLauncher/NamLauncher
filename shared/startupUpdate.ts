@@ -10,6 +10,8 @@ export type StartupUpdateInfo = {
   mandatory?: boolean
   error?: string
   installerSha256?: string | null
+  windowsBundleUrl?: string | null
+  windowsBundleSha256?: string | null
   notes?: string[]
 }
 export type StartupUpdateResult = {

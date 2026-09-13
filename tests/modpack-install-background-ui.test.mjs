@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 const cardSource = await readFile(new URL('../src/components/ModpackInstallActivityCard.tsx', import.meta.url), 'utf8')
 const textSource = await readFile(new URL('../src/appText.ts', import.meta.url), 'utf8')
 

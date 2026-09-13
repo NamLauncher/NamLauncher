@@ -7,7 +7,7 @@ import { runInNewContext } from 'node:vm'
 import { EventEmitter } from 'node:events'
 
 const discordSource = await readFile(new URL('../electron/discord.ts', import.meta.url), 'utf8')
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
 const flush = async () => { for (let i = 0; i < 8; i++) await Promise.resolve() }
 const settings = { discordRpcEnabled: true, discordClientId: 'test-client', launcherVersion: '1.1.16' }
 
@@ -137,7 +137,9 @@ test('tray sleep gates every presence refresh while taskbar minimization and hea
     extract('const syncDiscordForLauncherState =', 'const cleanupStaleLaunches ='),
     extract('const showMainWindow =', 'const requestAppQuit ='),
     extract('const hideLauncherToTray =', 'const closeLauncherWindow ='),
-    extract('const configureDiscordForActiveGames =', "trustedIpcHandle('set-discord-settings'"),
+    extract('const configureDiscordForActiveGames =', "trustedIpcHandle('set-discord-settings'")
+      .replaceAll('deps.launcherRestingInTray', 'launcherRestingInTray')
+      .replaceAll('deps.isAppQuitting', 'isAppQuitting'),
     '({ showMainWindow, hideLauncherToTray, minimizeLauncherToTaskbar, configureDiscordForActiveGames })'
   ].join('\n')
   let visible = true, minimized = false

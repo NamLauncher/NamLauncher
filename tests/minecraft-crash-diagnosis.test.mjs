@@ -8,8 +8,8 @@ import {
   getMinecraftCrashDiagnosis
 } from '../shared/minecraftCrashDiagnosis.ts'
 
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 const appTextSource = await readFile(new URL('../src/appText.ts', import.meta.url), 'utf8')
 
 test('identifies OpenGL buffer allocation failures even when an unrelated Realms warning appears first', () => {

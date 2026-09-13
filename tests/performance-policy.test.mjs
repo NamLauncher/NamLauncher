@@ -12,8 +12,8 @@ import {
   resolvePerformancePolicy
 } from '../electron/performancePolicy.ts'
 
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 
 test('normalizes unknown performance profiles to automatic', () => {
   assert.equal(normalizePerformanceProfile('max-fps'), 'max-fps')

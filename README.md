@@ -18,7 +18,7 @@ outside this repository.
 
 ## Build and test
 
-Requirements: Node.js 20 or newer, npm, and the platform tools required by
+Requirements: Node.js 22 or newer, npm, and the platform tools required by
 Electron Builder.
 
 ```text
@@ -32,7 +32,19 @@ SHA-256 hashes, mod identities, and protected icon resources. It never compiles
 the private companion source in this public repository.
 
 See [docs/architecture.md](docs/architecture.md) for repository ownership and
-[docs/development.md](docs/development.md) for the stable/development workflow.
+[docs/development.md](docs/development.md) for the supported branch workflow.
+
+### Unsigned macOS test build
+
+Run `npm run dist:mac` on macOS to create the free unsigned DMG used for local
+testing. Verify the published SHA-256 checksum before opening any downloaded
+build, including a GitHub Actions artifact.
+
+Because the test build is unsigned, macOS may block its first launch. Use the
+per-app approval flow: Control-click NamLauncher, choose Open, or review the
+blocked app under System Settings > Privacy & Security. Never disable Gatekeeper
+globally. Signed and notarized automatic updates remain a separate future
+release path.
 
 ## Security and privacy
 

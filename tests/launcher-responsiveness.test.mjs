@@ -11,9 +11,9 @@ const launcherPatch = await readFile(
   new URL('../patches/minecraft-launcher-core+3.18.2+001+base.patch', import.meta.url),
   'utf8'
 )
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
 const preloadSource = await readFile(new URL('../electron/preload.ts', import.meta.url), 'utf8')
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 
 test('bounds Minecraft asset checksum and download concurrency', () => {
   assert.match(launcherPatch, /mapLimit \(items, limit, iterator\)/)

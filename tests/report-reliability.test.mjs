@@ -111,8 +111,9 @@ test('known user validation failures do not become launcher bug reports, but gen
 })
 
 test('missing Xbox profiles receive actionable Microsoft login guidance', async () => {
-  const source = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
-  const body = source.slice(source.indexOf('const getMicrosoftLoginFailureMessage ='), source.indexOf('const normalizeSkinModel ='))
+  const source = (await readFile(new URL('../electron/accounts/accountService.ts', import.meta.url), 'utf8'))
+    .replace(/\r\n?/g, '\n')
+  const body = source.slice(source.indexOf('  const getMicrosoftLoginFailureMessage ='), source.indexOf('\n\n  return {', source.indexOf('  const getMicrosoftLoginFailureMessage =')))
   const resolveFailure = new Function(`${stripTypeScriptTypes(body)}\nreturn getMicrosoftLoginFailureMessage;`)()
   for (const reason of [
     "The account doesn't have an Xbox account.",
@@ -125,7 +126,7 @@ test('missing Xbox profiles receive actionable Microsoft login guidance', async 
 })
 
 test('captures a bounded current-launch console tail when bootstrap fails before latest.log exists', async () => {
-  const source = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
+  const source = await (await import('./sourceText.mjs')).readElectronMainSource()
   assert.match(source, /let launchProcessOutputTail = ''/)
   assert.match(source, /launchProcessOutputTail = .*\.slice\(-64 \* 1024\)/)
   assert.match(source, /Current launch stdout\/stderr/)

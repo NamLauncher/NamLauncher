@@ -46,11 +46,11 @@ const makeInstance = async (root, name) => {
   return { instanceRoot, gameDirectory }
 }
 
-test('stages a unique, SHA-256 pinned artifact matrix for launcher 1.2.3', async () => {
+test('stages a unique, SHA-256 pinned artifact matrix for launcher 1.2.4 beta3', async () => {
   const manifest = await readSourceManifest()
   assert.ok(manifest)
   assert.equal(manifest.schemaVersion, 2)
-  assert.equal(manifest.launcherVersion, '1.2.3')
+  assert.equal(manifest.launcherVersion, '1.2.4-beta3')
   assert.equal(manifest.artifacts.length, 10)
   assert.equal(new Set(manifest.artifacts.map((artifact) => `${artifact.loader}:${artifact.minecraftVersion}`)).size, 10)
 
@@ -63,7 +63,7 @@ test('stages a unique, SHA-256 pinned artifact matrix for launcher 1.2.3', async
       assert.match(artifact.version, /^1\.1\.16\+/)
     } else {
       assert.equal(artifact.supportStatus, 'maintained')
-      assert.match(artifact.version, /^1\.2\.3\+/)
+      assert.match(artifact.version, /^1\.2\.4-beta3\+/)
     }
   }
 })
@@ -308,7 +308,7 @@ test('managed companion stays hidden, cannot be mutated through content IPC, and
     assert.equal(digest(await readFile(installedPath)), artifact.sha256)
   })
 
-  const mainSource = await readFile(path.resolve('electron', 'main.ts'), 'utf8')
+  const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
   assert.match(mainSource, /getInstanceContent[\s\S]*listManagedBrandingBridgeFiles[\s\S]*managedFiles\.has\(path\.resolve\(filePath\)\)/)
   assert.match(mainSource, /assertContentFileIsNotLauncherManaged[\s\S]*toggleInstanceContent[\s\S]*assertContentFileIsNotLauncherManaged/)
   assert.match(mainSource, /deleteInstanceContent[\s\S]*assertContentFileIsNotLauncherManaged/)
@@ -326,6 +326,6 @@ test('packages the whole verified matrix and provisions after loader resolution'
   for (const platform of ['win', 'linux', 'mac']) {
     assert.match(packageJson.scripts[`dist:${platform}`], /^npm run prepare:game-bridge && /)
   }
-  const mainSource = await readFile(path.resolve('electron', 'main.ts'), 'utf8')
+  const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
   assert.match(mainSource, /const loader = await prepareLoader[\s\S]*provisionBrandingBridge\(\{[\s\S]*minecraftVersion: instance\.version/)
 })

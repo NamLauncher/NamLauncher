@@ -9,8 +9,8 @@ import {
   normalizeGameSessionLoader
 } from '../shared/gameSessionTelemetry.ts'
 
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 const textSource = await readFile(new URL('../src/appText.ts', import.meta.url), 'utf8')
 
 test('normalizes bounded loader values and close reasons', () => {

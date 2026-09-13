@@ -5,7 +5,7 @@ import test from 'node:test'
 import { getDiscordLargeImageText, getPlayerHeadUrl } from '../electron/discord.ts'
 
 const discordSource = await readFile(new URL('../electron/discord.ts', import.meta.url), 'utf8')
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
 const textureVerifierSource = await readFile(new URL('../electron/minecraft/discordTexture.ts', import.meta.url), 'utf8')
 const javaManagerSource = await readFile(new URL('../electron/javaManager.ts', import.meta.url), 'utf8')
 const discordTransportSource = await readFile(new URL('../node_modules/discord-rpc/src/transports/ipc.js', import.meta.url), 'utf8')

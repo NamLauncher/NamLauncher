@@ -12,9 +12,9 @@ import {
 } from '../shared/offlineUsername.ts'
 import { redactLabeledPlayerNames } from '../shared/privacyRedaction.ts'
 
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 const appTextSource = await readFile(new URL('../src/appText.ts', import.meta.url), 'utf8')
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
 const preloadSource = await readFile(new URL('../electron/preload.ts', import.meta.url), 'utf8')
 
 test('accepts only Minecraft-compatible offline usernames at the length boundaries', () => {

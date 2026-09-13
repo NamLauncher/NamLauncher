@@ -18,8 +18,9 @@ import {
   resolveLibrarySearchFilters
 } from '../shared/librarySearchFilters.ts'
 
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
+const libraryViewSource = await readFile(new URL('../src/views/LibraryView.tsx', import.meta.url), 'utf8')
 
 test('normalizes library filter values through strict allowlists', () => {
   assert.deepEqual(normalizeLibrarySearchFilters({
@@ -198,4 +199,20 @@ test('renders one shared pagination component above and below library results', 
   assert.equal((appSource.match(/<LibraryPagination/g) || []).length, 2)
   assert.match(appSource, /<LibraryPagination[\s\S]*placement="top"[\s\S]*className="border-b/)
   assert.match(appSource, /<LibraryPagination[\s\S]*placement="bottom"[\s\S]*className="border-t/)
+})
+
+test('renders all Library filters as compact themed comboboxes instead of native selects', () => {
+  const filterSection = libraryViewSource.slice(
+    libraryViewSource.indexOf('role="group" aria-label={t(\'library.filters\')}'),
+    libraryViewSource.indexOf("t('library.filters.openSource')")
+  )
+  assert.doesNotMatch(filterSection, /<select\b/)
+  assert.equal((filterSection.match(/<InstanceSelect/g) || []).length, 4)
+  assert.equal((filterSection.match(/\bcompact\b/g) || []).length, 4)
+  for (const testId of [
+    'library-sort-select',
+    'library-game-version-select',
+    'library-loader-select',
+    'library-environment-select'
+  ]) assert.match(filterSection, new RegExp(`testId="${testId}"`))
 })

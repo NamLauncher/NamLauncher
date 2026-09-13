@@ -3,7 +3,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 const appTextSource = await readFile(new URL('../src/appText.ts', import.meta.url), 'utf8')
 const partnerSource = await readFile(new URL('../shared/partnerServers.ts', import.meta.url), 'utf8')
 
@@ -18,8 +18,8 @@ test('uses Home as the default view and keeps its network discovery lazy', () =>
 })
 
 test('renders the About website, developer, and all shared partner servers', () => {
-  assert.match(appSource, /import \{ PARTNER_SERVERS, type PartnerServerDefinition \} from '\.\.\/shared\/partnerServers'/)
-  assert.match(appSource, /PARTNER_SERVERS\.map\(\(server\) =>/)
+  assert.match(appSource, /import \{ PARTNER_SERVERS, type PartnerServerDefinition \} from '\.\.\/(?:\.\.\/)?shared\/partnerServers'/)
+  assert.match(appSource, /PARTNER_SERVERS\.map\(\(server(?:: any)?\) =>/)
   assert.match(appSource, /openExternal\('https:\/\/nattapat2871\.me\/'\)/)
   assert.match(appSource, /openExternal\('https:\/\/namlauncher\.nattapat2871\.me\/'\)/)
   assert.match(partnerSource, /name: 'MiniSand'[\s\S]*websiteUrl: 'https:\/\/minisand\.online\/'/)

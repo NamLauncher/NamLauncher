@@ -77,7 +77,9 @@ export const installPlatformAutoUpdate = async (options: {
   updater.autoDownload = false
   updater.autoInstallOnAppQuit = false
   updater.allowDowngrade = false
-  updater.allowPrerelease = false
+  // Stable releases never follow a prerelease feed. A beta build may update
+  // only when the website explicitly announces another safe prerelease.
+  updater.allowPrerelease = options.version.includes('-')
   updater.disableDifferentialDownload = true
   updater.disableWebInstaller = true
   updater.logger = options.logger

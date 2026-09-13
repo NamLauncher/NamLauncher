@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 const selectSource = await readFile(new URL('../src/components/InstanceSelect.tsx', import.meta.url), 'utf8')
 const loaderIconSource = await readFile(new URL('../src/components/LoaderIcon.tsx', import.meta.url), 'utf8')
 
@@ -33,8 +33,22 @@ test('custom instance selector supports portal positioning, ARIA, keyboard contr
     assert.match(selectSource, new RegExp(`event\\.key === '${key}'`))
   }
   assert.match(selectSource, /typeaheadRef/)
+  assert.match(selectSource, /shouldScrollActiveRef/)
   assert.match(selectSource, /scrollIntoView\(\{ block: 'nearest' \}\)/)
+  assert.match(selectSource, /const moveActiveFromPointer = \(index: number\) => \{\s*moveActive\(index, false\)/)
+  assert.match(selectSource, /onPointerMove=\{\(\) => moveActiveFromPointer\(index\)\}/)
+  assert.doesNotMatch(selectSource, /onPointerMove=\{\(\) => setActiveIndex/)
+  assert.match(selectSource, /overscroll-contain overflow-y-auto/)
   assert.match(selectSource, /bg-\[#101a2c\]/)
+})
+
+test('Create Instance aligns the name field label with custom selector labels', () => {
+  const createSection = appSource.slice(
+    appSource.indexOf('<label className="block space-y-2">'),
+    appSource.indexOf('testId="create-instance-loader-select"') + 100
+  )
+  assert.match(createSection, /<span className="block text-xs font-black uppercase/)
+  assert.match(createSection, /<InstanceSelect[\s\S]*label=\{t\('instance\.loader'\)\}/)
 })
 
 test('loader artwork is transparent and is not clipped or wrapped in an artificial frame', () => {

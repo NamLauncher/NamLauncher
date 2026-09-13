@@ -5,80 +5,185 @@ on:
   workflow_dispatch:
     inputs:
       upload_artifact:
-        description: Upload the unsigned DMG and checksum for one day
+        description: Upload the unsigned DMG and checksum for one day (uses Actions storage)
         required: true
         type: boolean
         default: false
+      release_tag:
+        description: Upload directly to this existing Draft Release instead (must exactly match v + package.json version)
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
 
 jobs:
   macos:
-    name: macOS universal DMG
+    name: Unsigned macOS universal DMG
+    if: ${{ inputs.release_tag == '' }}
     runs-on: macos-15
+    outputs:
+      dmg_sha256: ${{ steps.mac_artifacts.outputs.dmg_sha256 }}
+      checksum_sha256: ${{ steps.mac_artifacts.outputs.checksum_sha256 }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
           cache: npm
-      - uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v5.0.0
-        with:
-          distribution: temurin
-          java-version: "17"
-      - name: Capture Java 17 toolchain
-        shell: bash
-        run: printf 'NAMLAUNCHER_JAVA17_HOME=%s\n' "$JAVA_HOME" >> "$GITHUB_ENV"
-      - uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v5.0.0
-        with:
-          distribution: temurin
-          java-version: "21"
-      - name: Capture Java 21 toolchain
-        shell: bash
-        run: printf 'NAMLAUNCHER_JAVA21_HOME=%s\n' "$JAVA_HOME" >> "$GITHUB_ENV"
-      - uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v5.0.0
-        with:
-          distribution: temurin
-          java-version: "25"
-          cache: gradle
-          cache-dependency-path: game-bridge/gradle/wrapper/gradle-wrapper.properties
-      - name: Install checksum-verified Gradle 8.8 toolchain
-        shell: bash
-        run: |
-          set -euo pipefail
-          tool_root="${RUNNER_TEMP:?}/namlauncher-gradle-8.8"
-          archive="$tool_root/gradle-8.8-bin.zip"
-          mkdir -p "$tool_root"
-          curl --fail --silent --show-error --location \
-            https://services.gradle.org/distributions/gradle-8.8-bin.zip \
-            --output "$archive"
-          printf '%s  %s\n' \
-            'a4b4158601f8636cdeeab09bd76afb640030bb5b144aafe261a5e8af027dc612' \
-            "$archive" | shasum -a 256 -c -
-          ditto -x -k "$archive" "$tool_root"
-          printf 'NAMLAUNCHER_GRADLE8_HOME=%s\n' "$tool_root/gradle-8.8" >> "$GITHUB_ENV"
       - run: npm ci
       - run: npm test
-      - run: npm run dist:mac
-      - name: Verify universal application architectures and checksum
+
+      - name: Build unsigned universal DMG
+        run: npm run dist:mac
+
+      - name: Verify universal application architectures
         shell: bash
         run: |
           set -euo pipefail
           app_path="$(find release -type d -name 'NamLauncher.app' -print -quit)"
           [[ -n "$app_path" ]]
-          architectures="$(lipo -archs "$app_path/Contents/MacOS/NamLauncher")"
+          main_binary="$app_path/Contents/MacOS/NamLauncher"
+          [[ -f "$main_binary" ]]
+          architectures="$(lipo -archs "$main_binary")"
           for required_architecture in arm64 x86_64; do
             case " $architectures " in
               *" $required_architecture "*) ;;
-              *) printf 'Missing %s architecture (found: %s)\n' "$required_architecture" "$architectures" >&2; exit 1 ;;
+              *) printf 'Missing %s in %s (found: %s)\n' "$required_architecture" "$main_binary" "$architectures" >&2; exit 1 ;;
             esac
           done
-          checksum_path="$(find release -maxdepth 1 -type f -name 'NamLauncher-*-macOS-universal.dmg.sha256' -print -quit)"
-          [[ -n "$checksum_path" && -s "$checksum_path" ]]
+          printf 'Verified universal app architectures: %s\n' "$architectures"
+
+      - name: Verify unsigned DMG output and checksum
+        id: mac_artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          dmg_path="$(find release -maxdepth 1 -type f -name 'NamLauncher-*-macOS-universal.dmg' -print -quit)"
+          [[ -n "$dmg_path" && -s "$dmg_path" ]]
+          checksum_path="${dmg_path}.sha256"
+          [[ -s "$checksum_path" ]]
           (cd release && shasum -a 256 -c "$(basename "$checksum_path")")
+          printf 'dmg_sha256=%s\n' "$(shasum -a 256 "$dmg_path" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          printf 'checksum_sha256=%s\n' "$(shasum -a 256 "$checksum_path" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test application from the mounted DMG
+        timeout-minutes: 3
+        shell: bash
+        env:
+          EXPECTED_RUNNER_ARCH: arm64
+        run: &mounted_dmg_smoke |
+          set -euo pipefail
+          actual_runner_arch="$(uname -m)"
+          if [[ "$actual_runner_arch" != "$EXPECTED_RUNNER_ARCH" ]]; then
+            printf 'Expected macOS runner architecture %s; received %s.\n' \
+              "$EXPECTED_RUNNER_ARCH" "$actual_runner_arch" >&2
+            exit 1
+          fi
+          package_version="$(node -p "require('./package.json').version")"
+          dmg_path="release/NamLauncher-${package_version}-macOS-universal.dmg"
+          mount_root="$(mktemp -d "${RUNNER_TEMP:?}/namlauncher-dmg-mount.XXXXXX")"
+          smoke_root="$(mktemp -d "${RUNNER_TEMP:?}/namlauncher-smoke.XXXXXX")"
+          data_root="$smoke_root/data"
+          chromium_profile="$smoke_root/chromium-profile"
+          console_log="$smoke_root/console.log"
+          app_pid=""
+          mounted=false
+
+          cleanup() {
+            exit_code=$?
+            trap - EXIT
+            if [[ -n "$app_pid" ]] && kill -0 "$app_pid" 2>/dev/null; then
+              kill -TERM "$app_pid" 2>/dev/null || true
+              for _ in 1 2 3 4 5; do
+                kill -0 "$app_pid" 2>/dev/null || break
+                sleep 1
+              done
+              kill -KILL "$app_pid" 2>/dev/null || true
+              wait "$app_pid" 2>/dev/null || true
+            fi
+            if [[ "$mounted" == true ]]; then
+              if hdiutil detach "$mount_root" -force >/dev/null 2>&1; then
+                mounted=false
+              else
+                printf 'Could not detach temporary DMG mount at %s.\n' "$mount_root" >&2
+                exit_code=1
+              fi
+            fi
+            rm -rf -- "$smoke_root"
+            [[ "$mounted" == true ]] || rmdir "$mount_root" 2>/dev/null || true
+            exit "$exit_code"
+          }
+          trap cleanup EXIT
+
+          [[ -s "$dmg_path" ]]
+          hdiutil attach "$dmg_path" -readonly -nobrowse -mountpoint "$mount_root" >/dev/null
+          mounted=true
+          app_path="$(find "$mount_root" -maxdepth 2 -type d -name 'NamLauncher.app' -print -quit)"
+          [[ -n "$app_path" ]]
+          main_binary="$app_path/Contents/MacOS/NamLauncher"
+          [[ -x "$main_binary" ]]
+
+          mkdir -p "$data_root" "$chromium_profile"
+          NAMLAUNCHER_DATA_DIR="$data_root" \
+            ELECTRON_ENABLE_LOGGING=1 \
+            "$main_binary" \
+              "--user-data-dir=$chromium_profile" \
+              --disable-gpu \
+              >"$console_log" 2>&1 &
+          app_pid=$!
+
+          smoke_seconds=15
+          for ((second = 1; second <= smoke_seconds; second += 1)); do
+            sleep 1
+            if ! kill -0 "$app_pid" 2>/dev/null; then
+              if wait "$app_pid"; then app_status=0; else app_status=$?; fi
+              app_pid=""
+              printf 'NamLauncher exited during DMG smoke test after %s second(s), status %s.\n' \
+                "$second" "$app_status" >&2
+              tail -n 200 "$console_log" >&2 || true
+              exit 1
+            fi
+          done
+
+          startup_log="$data_root/logs/app.logs"
+          if [[ ! -s "$startup_log" ]]; then
+            printf 'NamLauncher did not create its isolated startup log.\n' >&2
+            tail -n 200 "$console_log" >&2 || true
+            exit 1
+          fi
+          for required_sentinel in \
+            '--- NamLauncher starting ---' \
+            '--- NamLauncher renderer ready ---'; do
+            if ! grep -Fq -- "$required_sentinel" "$startup_log"; then
+              printf 'Missing runtime readiness sentinel: %s\n' "$required_sentinel" >&2
+              tail -n 200 "$console_log" >&2 || true
+              tail -n 200 "$startup_log" >&2 || true
+              exit 1
+            fi
+          done
+
+          fatal_pattern='\[LAUNCHER-ERROR\]|uncaught[[:space:]_-]*(exception|error)|unhandled[[:space:]_-]*rejection|fatal[[:space:]_-]+error|segmentation fault|trace/bpt trap|dyld:.*(library not loaded|symbol not found)'
+          if grep -Eina "$fatal_pattern" "$console_log" "$startup_log"; then
+            printf 'Fatal or uncaught startup error detected during DMG smoke test.\n' >&2
+            exit 1
+          fi
+
+          kill -TERM "$app_pid"
+          for _ in 1 2 3 4 5; do
+            kill -0 "$app_pid" 2>/dev/null || break
+            sleep 1
+          done
+          kill -KILL "$app_pid" 2>/dev/null || true
+          wait "$app_pid" 2>/dev/null || true
+          app_pid=""
+          printf 'Mounted DMG smoke test passed on %s after %s seconds.\n' \
+            "$actual_runner_arch" "$smoke_seconds"
+
       - name: Upload optional short-lived unsigned DMG
         if: ${{ inputs.upload_artifact }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -90,3 +195,482 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
+
+  macos_draft_release:
+    name: Unsigned macOS universal DMG to existing Draft Release
+    if: ${{ inputs.release_tag != '' }}
+    runs-on: macos-15
+    permissions:
+      contents: write
+    outputs:
+      release_id: ${{ steps.draft_release.outputs.release_id }}
+      source_sha: ${{ steps.draft_release.outputs.source_sha }}
+      dmg_sha256: ${{ steps.mac_artifacts.outputs.dmg_sha256 }}
+      checksum_sha256: ${{ steps.mac_artifacts.outputs.checksum_sha256 }}
+      manifest_sha256: ${{ steps.mac_artifacts.outputs.manifest_sha256 }}
+    steps:
+      - name: Validate release tag input shape
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            printf 'release_tag must be a stable semantic version tag.\n' >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          ref: refs/tags/${{ inputs.release_tag }}
+          fetch-depth: 0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Validate tag and existing Draft Release
+        id: draft_release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          package_version="$(node -p "require('./package.json').version")"
+          expected_tag="v${package_version}"
+          if [[ "$RELEASE_TAG" != "$expected_tag" ]]; then
+            printf 'release_tag must exactly equal %s (received: %s)\n' "$expected_tag" "$RELEASE_TAG" >&2
+            exit 1
+          fi
+          checked_out_sha="$(git rev-parse --verify 'HEAD^{commit}')"
+          local_tag_sha="$(git rev-parse --verify "refs/tags/${RELEASE_TAG}^{commit}")"
+          if [[ "$local_tag_sha" != "$checked_out_sha" ]]; then
+            printf 'Local tag %s resolves to %s, not checked-out commit %s\n' \
+              "$RELEASE_TAG" "$local_tag_sha" "$checked_out_sha" >&2
+            exit 1
+          fi
+
+          IFS=$'\t' read -r tag_type tag_sha <<< "$(
+            gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" \
+              --jq '[.object.type, .object.sha] | @tsv'
+          )"
+          for _ in 1 2 3 4 5; do
+            [[ "$tag_type" == "tag" ]] || break
+            IFS=$'\t' read -r tag_type tag_sha <<< "$(
+              gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_sha}" \
+                --jq '[.object.type, .object.sha] | @tsv'
+            )"
+          done
+          if [[ "$tag_type" != "commit" || "$tag_sha" != "$checked_out_sha" ]]; then
+            printf 'Tag %s resolves to %s %s, not checked-out commit %s\n' \
+              "$RELEASE_TAG" "$tag_type" "$tag_sha" "$checked_out_sha" >&2
+            exit 1
+          fi
+
+          draft_release_matches="$(
+            gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100" | \
+              jq -c --arg release_tag "$RELEASE_TAG" \
+                '[.[][] | select(.tag_name == $release_tag and .draft == true) | {id, tag_name, draft}]'
+          )"
+          draft_release_count="$(jq -r 'length' <<< "$draft_release_matches")"
+          if [[ "$draft_release_count" != "1" ]]; then
+            printf 'Expected exactly one existing Draft Release for %s; found %s\n' \
+              "$RELEASE_TAG" "$draft_release_count" >&2
+            exit 1
+          fi
+          IFS=$'\t' read -r release_id actual_tag release_draft <<< "$(
+            jq -r '.[0] | [.id, .tag_name, .draft] | @tsv' <<< "$draft_release_matches"
+          )"
+          if [[ ! "$release_id" =~ ^[0-9]+$ || "$actual_tag" != "$RELEASE_TAG" || "$release_draft" != "true" ]]; then
+            printf 'Release %s must already exist and remain a draft\n' "$RELEASE_TAG" >&2
+            exit 1
+          fi
+          printf 'release_id=%s\n' "$release_id" >> "$GITHUB_OUTPUT"
+          printf 'source_sha=%s\n' "$checked_out_sha" >> "$GITHUB_OUTPUT"
+
+      - run: npm ci
+      - run: npm test
+
+      - name: Build unsigned universal DMG
+        run: npm run dist:mac
+
+      - name: Verify universal application architectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="$(find release -type d -name 'NamLauncher.app' -print -quit)"
+          [[ -n "$app_path" ]]
+          main_binary="$app_path/Contents/MacOS/NamLauncher"
+          [[ -f "$main_binary" ]]
+          architectures="$(lipo -archs "$main_binary")"
+          for required_architecture in arm64 x86_64; do
+            case " $architectures " in
+              *" $required_architecture "*) ;;
+              *) printf 'Missing %s in %s (found: %s)\n' "$required_architecture" "$main_binary" "$architectures" >&2; exit 1 ;;
+            esac
+          done
+          printf 'Verified universal app architectures: %s\n' "$architectures"
+
+      - name: Verify unsigned DMG output and checksum
+        id: mac_artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_version="$(node -p "require('./package.json').version")"
+          dmg_path="release/NamLauncher-${package_version}-macOS-universal.dmg"
+          checksum_path="${dmg_path}.sha256"
+          manifest_path="release/NamLauncher-${package_version}-macOS-SHA256SUMS.txt"
+          [[ -s "$dmg_path" && -s "$checksum_path" && -s "$manifest_path" ]]
+          (cd release && shasum -a 256 -c "$(basename "$checksum_path")")
+          (cd release && shasum -a 256 -c "$(basename "$manifest_path")")
+          printf 'dmg_sha256=%s\n' "$(shasum -a 256 "$dmg_path" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          printf 'checksum_sha256=%s\n' "$(shasum -a 256 "$checksum_path" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          printf 'manifest_sha256=%s\n' "$(shasum -a 256 "$manifest_path" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test application from the mounted DMG
+        timeout-minutes: 3
+        shell: bash
+        env:
+          EXPECTED_RUNNER_ARCH: arm64
+        run: *mounted_dmg_smoke
+
+      - name: Upload verified files without replacing release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.draft_release.outputs.release_id }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_SHA: ${{ steps.draft_release.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ || "$(git rev-parse --verify 'HEAD^{commit}')" != "$SOURCE_SHA" ]]; then
+            printf 'Checked-out source changed before macOS upload.\n' >&2
+            exit 1
+          fi
+          upload_local_tag_sha="$(git rev-parse --verify "refs/tags/${RELEASE_TAG}^{commit}")"
+          if [[ "$upload_local_tag_sha" != "$SOURCE_SHA" ]]; then
+            printf 'Local release tag changed before macOS upload.\n' >&2
+            exit 1
+          fi
+          IFS=$'\t' read -r upload_tag_type upload_tag_sha <<< "$(
+            gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" \
+              --jq '[.object.type, .object.sha] | @tsv'
+          )"
+          for _ in 1 2 3 4 5; do
+            [[ "$upload_tag_type" == "tag" ]] || break
+            IFS=$'\t' read -r upload_tag_type upload_tag_sha <<< "$(
+              gh api "repos/${GITHUB_REPOSITORY}/git/tags/${upload_tag_sha}" \
+                --jq '[.object.type, .object.sha] | @tsv'
+            )"
+          done
+          if [[ "$upload_tag_type" != "commit" || "$upload_tag_sha" != "$SOURCE_SHA" ]]; then
+            printf 'Release tag changed before macOS upload.\n' >&2
+            exit 1
+          fi
+          package_version="$(node -p "require('./package.json').version")"
+          dmg_path="release/NamLauncher-${package_version}-macOS-universal.dmg"
+          checksum_path="${dmg_path}.sha256"
+          manifest_path="release/NamLauncher-${package_version}-macOS-SHA256SUMS.txt"
+          [[ -s "$dmg_path" && -s "$checksum_path" && -s "$manifest_path" ]]
+          upload_paths=("$dmg_path" "$checksum_path" "$manifest_path")
+
+          current_release_matches="$(
+            gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100" | \
+              jq -c --arg release_tag "$RELEASE_TAG" \
+                '[.[][] | select(.tag_name == $release_tag and .draft == true) | {id, tag_name, draft}]'
+          )"
+          current_release_count="$(jq -r 'length' <<< "$current_release_matches")"
+          if [[ "$current_release_count" != "1" ]]; then
+            printf 'Expected one unchanged Draft Release for %s; found %s\n' \
+              "$RELEASE_TAG" "$current_release_count" >&2
+            exit 1
+          fi
+          IFS=$'\t' read -r current_release_id current_tag current_draft <<< "$(
+            jq -r '.[0] | [.id, .tag_name, .draft] | @tsv' <<< "$current_release_matches"
+          )"
+          if [[ "$current_release_id" != "$RELEASE_ID" || "$current_tag" != "$RELEASE_TAG" || "$current_draft" != "true" ]]; then
+            printf 'Draft Release changed after validation; refusing upload\n' >&2
+            exit 1
+          fi
+
+          existing_assets="$(
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?per_page=100" \
+              --jq '.[].name'
+          )"
+          for artifact_path in "${upload_paths[@]}"; do
+            artifact_name="$(basename "$artifact_path")"
+            if printf '%s\n' "$existing_assets" | grep -Fqx -- "$artifact_name"; then
+              printf 'Release asset already exists; refusing to overwrite %s\n' "$artifact_name" >&2
+              exit 1
+            fi
+          done
+
+          gh release upload "$RELEASE_TAG" "${upload_paths[@]}" --repo "$GITHUB_REPOSITORY"
+
+  macos_draft_release_intel:
+    name: Verify existing Draft Release DMG on Intel macOS
+    if: ${{ inputs.release_tag != '' }}
+    needs: macos_draft_release
+    runs-on: macos-15-intel
+    # GitHub hides Draft Releases from read-only installation tokens. Keep this
+    # permission job-scoped, expose GH_TOKEN only to the read-only download step,
+    # and statically reject every release mutation command in regression tests.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          ref: refs/tags/${{ inputs.release_tag }}
+          fetch-depth: 0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+
+      - name: Download and verify exact Draft Release assets
+        timeout-minutes: 5
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          EXPECTED_RELEASE_ID: ${{ needs.macos_draft_release.outputs.release_id }}
+          EXPECTED_SOURCE_SHA: ${{ needs.macos_draft_release.outputs.source_sha }}
+          EXPECTED_DMG_SHA256: ${{ needs.macos_draft_release.outputs.dmg_sha256 }}
+          EXPECTED_CHECKSUM_SHA256: ${{ needs.macos_draft_release.outputs.checksum_sha256 }}
+          EXPECTED_MANIFEST_SHA256: ${{ needs.macos_draft_release.outputs.manifest_sha256 }}
+        run: |
+          set -euo pipefail
+          package_version="$(node -p "require('./package.json').version")"
+          expected_tag="v${package_version}"
+          dmg_name="NamLauncher-${package_version}-macOS-universal.dmg"
+          checksum_name="${dmg_name}.sha256"
+          manifest_name="NamLauncher-${package_version}-macOS-SHA256SUMS.txt"
+
+          if [[ "$RELEASE_TAG" != "$expected_tag" ]]; then
+            printf 'release_tag must exactly equal %s (received: %s)\n' "$expected_tag" "$RELEASE_TAG" >&2
+            exit 1
+          fi
+          if [[ ! "$EXPECTED_RELEASE_ID" =~ ^[0-9]+$ ]]; then
+            printf 'Arm64 build did not provide a valid Draft Release id.\n' >&2
+            exit 1
+          fi
+          if [[ ! "$EXPECTED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            printf 'Arm64 build did not provide a valid source commit.\n' >&2
+            exit 1
+          fi
+          for expected_digest in \
+            "$EXPECTED_DMG_SHA256" \
+            "$EXPECTED_CHECKSUM_SHA256" \
+            "$EXPECTED_MANIFEST_SHA256"; do
+            if [[ ! "$expected_digest" =~ ^[0-9a-f]{64}$ ]]; then
+              printf 'Arm64 build did not provide all expected SHA-256 digests.\n' >&2
+              exit 1
+            fi
+          done
+          if [[ "$(git rev-parse --verify 'HEAD^{commit}')" != "$EXPECTED_SOURCE_SHA" ]]; then
+            printf 'Checked-out commit does not match arm64 source %s.\n' "$EXPECTED_SOURCE_SHA" >&2
+            exit 1
+          fi
+          intel_local_tag_sha="$(git rev-parse --verify "refs/tags/${RELEASE_TAG}^{commit}")"
+          if [[ "$intel_local_tag_sha" != "$EXPECTED_SOURCE_SHA" ]]; then
+            printf 'Local release tag does not match arm64 source %s.\n' "$EXPECTED_SOURCE_SHA" >&2
+            exit 1
+          fi
+
+          resolve_tag_commit() {
+            local tag_type tag_sha
+            IFS=$'\t' read -r tag_type tag_sha <<< "$(
+              gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" \
+                --jq '[.object.type, .object.sha] | @tsv'
+            )"
+            for _ in 1 2 3 4 5; do
+              [[ "$tag_type" == "tag" ]] || break
+              IFS=$'\t' read -r tag_type tag_sha <<< "$(
+                gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_sha}" \
+                  --jq '[.object.type, .object.sha] | @tsv'
+              )"
+            done
+            if [[ "$tag_type" != "commit" ]]; then
+              printf 'Tag %s does not resolve to a commit.\n' "$RELEASE_TAG" >&2
+              return 1
+            fi
+            printf '%s\n' "$tag_sha"
+          }
+
+          query_unique_draft() {
+            gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100" | \
+              jq -c --arg release_tag "$RELEASE_TAG" \
+                '[.[][] | select(.tag_name == $release_tag and .draft == true) | {id, tag_name, draft}]'
+          }
+
+          query_assets() {
+            gh api --paginate --slurp \
+              "repos/${GITHUB_REPOSITORY}/releases/${EXPECTED_RELEASE_ID}/assets?per_page=100" | \
+              jq -c '[.[][] | {id, name, size, state, digest}] | sort_by(.id)'
+          }
+
+          tag_sha_before="$(resolve_tag_commit)"
+          if [[ "$tag_sha_before" != "$EXPECTED_SOURCE_SHA" ]]; then
+            printf 'Tag %s resolves to %s, not arm64 source %s.\n' \
+              "$RELEASE_TAG" "$tag_sha_before" "$EXPECTED_SOURCE_SHA" >&2
+            exit 1
+          fi
+
+          release_before="$(query_unique_draft)"
+          if [[ "$(jq -r 'length' <<< "$release_before")" != "1" ]]; then
+            printf 'Expected exactly one unchanged Draft Release for %s.\n' "$RELEASE_TAG" >&2
+            exit 1
+          fi
+          IFS=$'\t' read -r release_id actual_tag release_draft <<< "$(
+            jq -r '.[0] | [.id, .tag_name, .draft] | @tsv' <<< "$release_before"
+          )"
+          if [[ "$release_id" != "$EXPECTED_RELEASE_ID" || "$actual_tag" != "$RELEASE_TAG" || "$release_draft" != "true" ]]; then
+            printf 'Draft Release identity changed after the arm64 upload.\n' >&2
+            exit 1
+          fi
+
+          assets_before="$(query_assets)"
+          expected_assets_before="$(
+            jq -c \
+              --arg dmg "$dmg_name" \
+              --arg checksum "$checksum_name" \
+              --arg manifest "$manifest_name" \
+              '[.[] | select(.name == $dmg or .name == $checksum or .name == $manifest)] | sort_by(.id)' \
+              <<< "$assets_before"
+          )"
+          if [[ "$(jq -r 'length' <<< "$expected_assets_before")" != "3" ]]; then
+            printf 'Draft Release does not contain exactly the three expected macOS assets.\n' >&2
+            exit 1
+          fi
+
+          asset_names=("$dmg_name" "$checksum_name" "$manifest_name")
+          expected_digests=(
+            "$EXPECTED_DMG_SHA256"
+            "$EXPECTED_CHECKSUM_SHA256"
+            "$EXPECTED_MANIFEST_SHA256"
+          )
+          mkdir -p release
+
+          for asset_index in 0 1 2; do
+            asset_name="${asset_names[$asset_index]}"
+            expected_digest="${expected_digests[$asset_index]}"
+            asset_matches="$(jq -c --arg asset_name "$asset_name" '[.[] | select(.name == $asset_name)]' <<< "$assets_before")"
+            if [[ "$(jq -r 'length' <<< "$asset_matches")" != "1" ]]; then
+              printf 'Expected exactly one Draft Release asset named %s.\n' "$asset_name" >&2
+              exit 1
+            fi
+            IFS=$'\t' read -r asset_id asset_size asset_state api_digest <<< "$(
+              jq -r '.[0] | [.id, .size, .state, (.digest // "")] | @tsv' <<< "$asset_matches"
+            )"
+            if [[ ! "$asset_id" =~ ^[0-9]+$ || ! "$asset_size" =~ ^[1-9][0-9]*$ || "$asset_state" != "uploaded" ]]; then
+              printf 'Draft Release asset %s is not in a downloadable uploaded state.\n' "$asset_name" >&2
+              exit 1
+            fi
+
+            download_path="release/${asset_name}"
+            if [[ -e "$download_path" ]]; then
+              printf 'Refusing to overwrite local download path %s.\n' "$download_path" >&2
+              exit 1
+            fi
+            gh api \
+              -H 'Accept: application/octet-stream' \
+              "repos/${GITHUB_REPOSITORY}/releases/assets/${asset_id}" \
+              > "$download_path"
+
+            downloaded_size="$(stat -f '%z' "$download_path")"
+            actual_digest="$(shasum -a 256 "$download_path" | awk '{print $1}')"
+            if [[ "$downloaded_size" != "$asset_size" || "$actual_digest" != "$expected_digest" ]]; then
+              printf 'Downloaded asset %s does not match the arm64-verified bytes.\n' "$asset_name" >&2
+              exit 1
+            fi
+            if [[ -n "$api_digest" && "$api_digest" != "sha256:${actual_digest}" ]]; then
+              printf 'GitHub asset digest does not match downloaded asset %s.\n' "$asset_name" >&2
+              exit 1
+            fi
+          done
+
+          (cd release && shasum -a 256 -c "$checksum_name")
+          (cd release && shasum -a 256 -c "$manifest_name")
+
+          tag_sha_after="$(resolve_tag_commit)"
+          release_after="$(query_unique_draft)"
+          assets_after="$(query_assets)"
+          expected_assets_after="$(
+            jq -c \
+              --arg dmg "$dmg_name" \
+              --arg checksum "$checksum_name" \
+              --arg manifest "$manifest_name" \
+              '[.[] | select(.name == $dmg or .name == $checksum or .name == $manifest)] | sort_by(.id)' \
+              <<< "$assets_after"
+          )"
+          if [[ "$tag_sha_after" != "$EXPECTED_SOURCE_SHA" || "$tag_sha_after" != "$tag_sha_before" || "$release_after" != "$release_before" || "$expected_assets_after" != "$expected_assets_before" ]]; then
+            printf 'Tag, Draft Release, or macOS asset identity changed during Intel verification.\n' >&2
+            exit 1
+          fi
+          printf 'Verified exact Draft Release macOS assets from arm64 build %s.\n' "$EXPECTED_SOURCE_SHA"
+
+      - name: Smoke test exact Draft Release application on Intel
+        timeout-minutes: 3
+        shell: bash
+        env:
+          EXPECTED_RUNNER_ARCH: x86_64
+        run: *mounted_dmg_smoke
+
+  macos_artifact_intel:
+    name: Verify short-lived artifact DMG on Intel macOS
+    if: ${{ inputs.release_tag == '' && inputs.upload_artifact }}
+    needs: macos
+    runs-on: macos-15-intel
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+
+      - name: Download arm64-verified short-lived artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: NamLauncher-macOS-universal-unsigned
+          path: release
+
+      - name: Verify exact short-lived artifact bytes
+        shell: bash
+        env:
+          EXPECTED_DMG_SHA256: ${{ needs.macos.outputs.dmg_sha256 }}
+          EXPECTED_CHECKSUM_SHA256: ${{ needs.macos.outputs.checksum_sha256 }}
+        run: |
+          set -euo pipefail
+          package_version="$(node -p "require('./package.json').version")"
+          dmg_name="NamLauncher-${package_version}-macOS-universal.dmg"
+          checksum_name="${dmg_name}.sha256"
+          dmg_path="release/${dmg_name}"
+          checksum_path="release/${checksum_name}"
+          [[ -s "$dmg_path" && -s "$checksum_path" ]]
+
+          for expected_digest in "$EXPECTED_DMG_SHA256" "$EXPECTED_CHECKSUM_SHA256"; do
+            if [[ ! "$expected_digest" =~ ^[0-9a-f]{64}$ ]]; then
+              printf 'The arm64 job did not provide both verified SHA-256 digests.\n' >&2
+              exit 1
+            fi
+          done
+
+          actual_dmg_sha256="$(shasum -a 256 "$dmg_path" | awk '{print $1}')"
+          actual_checksum_sha256="$(shasum -a 256 "$checksum_path" | awk '{print $1}')"
+          if [[ "$actual_dmg_sha256" != "$EXPECTED_DMG_SHA256" || "$actual_checksum_sha256" != "$EXPECTED_CHECKSUM_SHA256" ]]; then
+            printf 'Downloaded macOS artifact does not match the arm64-verified bytes.\n' >&2
+            exit 1
+          fi
+          (cd release && shasum -a 256 -c "$checksum_name")
+          printf 'Verified exact short-lived macOS artifact from arm64 build %s.\n' "$GITHUB_SHA"
+
+      - name: Smoke test short-lived artifact application on Intel
+        timeout-minutes: 3
+        shell: bash
+        env:
+          EXPECTED_RUNNER_ARCH: x86_64
+        run: *mounted_dmg_smoke

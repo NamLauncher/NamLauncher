@@ -1,9 +1,11 @@
+// Author/creator: nattapat2871 (https://nattapat2871.me)
+
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 
 test('blocks only mod file mutations while the selected instance is running or launching', () => {
   assert.match(mainSource, /const isModContentMutation = \(contentType: ModrinthProjectType \| InstanceContentKind\) => \{/)

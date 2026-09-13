@@ -1,11 +1,12 @@
+// Author/creator: nattapat2871 (https://nattapat2871.me)
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Check,
   ChevronDown,
   Cloud,
-  Download,
   Edit3,
   ImagePlus,
+  Library,
   Loader2,
   Rotate3D,
   Save,
@@ -19,6 +20,7 @@ import {
 import { AnimatePresence, m as motion } from 'framer-motion'
 import SkinViewer from './SkinViewer'
 import StaticSkinPreview from './StaticSkinPreview'
+import NameMcSkinLibrary from './NameMcSkinLibrary'
 
 type SkinAccount = {
   id: string
@@ -131,7 +133,8 @@ const copy = {
     loaded: 'Skin library loaded',
     savedOk: 'Skin saved and equipped',
     appliedOk: 'Skin equipped',
-    resetOk: 'Default skin restored'
+    resetOk: 'Default skin restored',
+    skinLibrary: 'Skin library'
   },
   th: {
     title: 'ตัวเลือกสกิน',
@@ -182,7 +185,8 @@ const copy = {
     loaded: 'โหลดคลังสกินแล้ว',
     savedOk: 'บันทึกและใช้สกินแล้ว',
     appliedOk: 'ใช้สกินแล้ว',
-    resetOk: 'คืนสกินเริ่มต้นแล้ว'
+    resetOk: 'คืนสกินเริ่มต้นแล้ว',
+    skinLibrary: 'ไลบรารี่สกิน'
   }
 } as const
 
@@ -297,19 +301,19 @@ const SkinAccordion = ({
   onToggle: () => void
   children: ReactNode
 }) => (
-  <section className="rounded-xl border border-slate-800 bg-[#0d1526]">
+  <section className="nam-skin-accordion rounded-xl border border-slate-800 bg-[#0d1526]">
     <button
       type="button"
       onClick={onToggle}
       aria-expanded={open}
       className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-slate-900/45"
     >
-      <span className="flex min-w-0 items-center gap-2">
+      <span className="flex items-center gap-2">
         <ChevronDown
           size={18}
           className={classNames('shrink-0 text-slate-400 transition-transform', open ? 'rotate-0' : '-rotate-90')}
         />
-        <span className="truncate text-base font-black text-slate-100">{title}</span>
+        <span className="break-words text-base font-black text-slate-100">{title}</span>
       </span>
       {typeof count === 'number' && (
         <span className="ml-3 rounded-md bg-slate-950/55 px-2 py-1 font-mono text-xs font-black text-slate-500">{count}</span>
@@ -354,9 +358,9 @@ const SkinCard = ({
 }) => (
   <div
     className={classNames(
-      'group relative min-h-[252px] overflow-hidden rounded-2xl border p-3 transition-colors',
+      'nam-skin-card group relative min-h-[252px] overflow-hidden rounded-2xl border p-3 transition-colors',
       selected
-        ? 'border-blue-300/55 bg-[radial-gradient(circle_at_50%_16%,rgba(96,165,250,0.34),rgba(37,99,235,0.28)_42%,rgba(13,21,38,0.94)_78%)] shadow-[0_18px_42px_rgba(37,99,235,0.16)]'
+        ? 'nam-skin-card-selected border-blue-300/55 bg-[radial-gradient(circle_at_50%_16%,rgba(96,165,250,0.34),rgba(37,99,235,0.28)_42%,rgba(13,21,38,0.94)_78%)] shadow-[0_18px_42px_rgba(37,99,235,0.16)]'
         : 'border-slate-800/70 bg-slate-950/10 hover:border-blue-400/35 hover:bg-slate-900/45'
     )}
   >
@@ -385,10 +389,10 @@ const SkinCard = ({
       )}
     </button>
     <div className="mt-3 min-w-0 text-center">
-      <p className="truncate text-sm font-black text-slate-100">{name}</p>
+      <p className="break-words text-sm font-black text-slate-100">{name}</p>
       <p className="mt-1 text-[11px] font-bold capitalize text-slate-500">{model} arms</p>
       {source && (
-        <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.1em] text-blue-300">{source}</p>
+        <p className="mt-1 break-words text-[10px] font-black uppercase tracking-[0.1em] text-blue-300">{source}</p>
       )}
     </div>
     <div className="mt-3 grid gap-2">
@@ -430,13 +434,12 @@ const SkinPage = ({
   const [busySkinId, setBusySkinId] = useState<string | null>(null)
   const [draft, setDraft] = useState<SkinDraft | null>(null)
   const [saving, setSaving] = useState(false)
-  const [restoreName, setRestoreName] = useState('')
-  const [restoring, setRestoring] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [savedOpen, setSavedOpen] = useState(true)
   const [defaultsOpen, setDefaultsOpen] = useState(false)
   const [busyDefaultSkinId, setBusyDefaultSkinId] = useState<string | null>(null)
   const [skinDeleteTargetId, setSkinDeleteTargetId] = useState<string | null>(null)
+  const [nameMcLibraryOpen, setNameMcLibraryOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const editorFileInputRef = useRef<HTMLInputElement | null>(null)
   const libraryRequestRef = useRef(0)
@@ -541,23 +544,6 @@ const SkinPage = ({
     })
   }
 
-  const importPlayerSkin = async () => {
-    const playerName = restoreName.trim()
-    if (!activeAccountId || !playerName || restoring) return
-    setRestoring(true)
-    onStatus(text.restoring)
-    try {
-      const next = await window.electron.importSkinByName({ accountId: activeAccountId, playerName })
-      applyLibrary(next)
-      setRestoreName('')
-      onStatus(text.restoredOk)
-    } catch (error: any) {
-      onStatus(`Error: ${error.message || 'Could not restore player skin'}`)
-    } finally {
-      setRestoring(false)
-    }
-  }
-
   const saveDraft = async () => {
     if (!draft || !activeAccountId) return
     setSaving(true)
@@ -651,7 +637,7 @@ const SkinPage = ({
       <motion.section
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex min-h-[520px] items-center justify-center rounded-xl border border-slate-800 bg-[#0d1526]"
+        className="nam-skin-surface flex min-h-[520px] items-center justify-center rounded-xl border border-slate-800 bg-[#0d1526]"
       >
         <div className="max-w-md text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-blue-400/25 bg-blue-500/10 text-blue-200">
@@ -687,7 +673,7 @@ const SkinPage = ({
               role="dialog"
               aria-modal="true"
               aria-labelledby="skin-delete-title"
-              className="w-full max-w-md overflow-hidden rounded-lg border border-slate-700 bg-[#0d1526] shadow-2xl shadow-black/50"
+              className="nam-skin-surface w-full max-w-md overflow-hidden rounded-lg border border-slate-700 bg-[#0d1526] shadow-2xl shadow-black/50"
             >
               <header className="flex items-start gap-4 border-b border-slate-800 p-5">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-red-400/30 bg-red-500/12 text-red-100">
@@ -731,13 +717,23 @@ const SkinPage = ({
         )}
       </AnimatePresence>
 
+      <NameMcSkinLibrary
+        open={nameMcLibraryOpen}
+        accountId={activeAccount.id}
+        language={language}
+        onClose={() => setNameMcLibraryOpen(false)}
+        onApplied={applyLibrary}
+        onStatus={onStatus}
+      />
+
       <motion.section
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="space-y-5"
+        className="nam-skin-page space-y-5"
       >
-        <div className="rounded-xl border border-slate-800 bg-[#0d1526] p-5">
-          <div>
+        <div className="nam-skin-surface rounded-xl border border-slate-800 bg-[#0d1526] p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
             <div className="flex items-center gap-2">
               <h2 className="text-2xl font-black tracking-tight">{text.title}</h2>
               <span className="rounded-full border border-blue-400/25 bg-blue-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-blue-200">
@@ -745,6 +741,18 @@ const SkinPage = ({
               </span>
             </div>
             <p className="mt-1 max-w-2xl text-sm font-semibold text-slate-500">{text.subtitle}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setNameMcLibraryOpen(true)}
+              className="nam-allow-overflow relative flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl border border-blue-300/70 bg-blue-500 px-5 text-sm font-black text-white shadow-xl shadow-blue-950/35 transition-colors hover:border-blue-200 hover:bg-blue-400"
+            >
+              <Library size={17} aria-hidden="true" />
+              {text.skinLibrary}
+              <span className="nam-skin-beta-badge absolute -right-2 -top-2 flex h-8 min-w-8 items-center justify-center rounded-full border-2 border-[#0d1526] bg-red-500 px-1.5 text-[8px] font-black tracking-tight text-white shadow-lg shadow-red-950/35">
+                BETA
+              </span>
+            </button>
           </div>
         </div>
 
@@ -764,50 +772,13 @@ const SkinPage = ({
           </div>
         </div>
 
-        {library && (
-          <div className="rounded-xl border border-blue-400/20 bg-[linear-gradient(135deg,rgba(37,99,235,0.12),rgba(13,21,38,0.96)_58%)] p-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-400/25 bg-blue-500/10 text-blue-200">
-                  <Download size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-slate-100">{text.restoreTitle}</h3>
-                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{text.restoreBody}</p>
-                </div>
-              </div>
-              <div className="flex min-w-0 gap-2 lg:w-[420px]">
-                <input
-                  value={restoreName}
-                  onChange={(event) => setRestoreName(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') void importPlayerSkin()
-                  }}
-                  maxLength={180}
-                  disabled={restoring}
-                  placeholder={text.restorePlaceholder}
-                  className="h-11 min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950/40 px-3 text-sm font-black text-slate-100 outline-none placeholder:text-slate-600 focus:border-blue-400/60 disabled:opacity-60"
-                />
-                <button
-                  disabled={restoring || !restoreName.trim()}
-                  onClick={importPlayerSkin}
-                  className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-500 px-4 text-xs font-black text-white hover:bg-blue-400 disabled:cursor-wait disabled:opacity-50"
-                >
-                  {restoring ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-                  {restoring ? text.restoring : text.restore}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
           <aside className="lg:sticky lg:top-0 lg:self-start">
-            <div className="overflow-hidden rounded-xl border border-slate-800 bg-[radial-gradient(circle_at_50%_22%,rgba(59,130,246,0.18),transparent_38%),linear-gradient(180deg,#111c32,#0d1526)]">
+            <div className="nam-skin-preview-panel overflow-hidden rounded-xl border border-slate-800 bg-[radial-gradient(circle_at_50%_22%,rgba(59,130,246,0.18),transparent_38%),linear-gradient(180deg,#111c32,#0d1526)]">
               <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">{text.preview}</p>
-                  <p className="mt-1 max-w-[220px] truncate text-sm font-black text-slate-100">{activeAccount.name}</p>
+                  <p className="mt-1 max-w-[220px] break-words text-sm font-black text-slate-100">{activeAccount.name}</p>
                 </div>
                 {library?.offlineOnly ? (
                   <span className="rounded-md bg-amber-500/10 px-2 py-1 text-[10px] font-black uppercase text-amber-300">{text.localBadge}</span>
@@ -816,7 +787,7 @@ const SkinPage = ({
                 )}
               </div>
 
-              <div className="relative h-[390px]">
+              <div className="nam-skin-preview-stage relative h-[390px]">
                 {loading ? (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Loader2 size={24} className="animate-spin text-blue-300" />
@@ -1013,12 +984,12 @@ const SkinPage = ({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.99 }}
               onMouseDown={(event) => event.stopPropagation()}
-              className="max-h-[calc(100vh-32px)] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-700 bg-[#111a2c] shadow-2xl shadow-black/60"
+              className="nam-skin-editor-dialog max-h-[calc(100vh-32px)] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-700 bg-[#111a2c] shadow-2xl shadow-black/60"
             >
               <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
                 <div>
                   <h3 className="text-lg font-black">{text.editing}</h3>
-                  <p className="mt-1 truncate font-mono text-[10px] font-semibold text-slate-600">{activeAccount.uuid}</p>
+                  <p className="mt-1 break-all font-mono text-[10px] font-semibold text-slate-600">{activeAccount.uuid}</p>
                 </div>
                 <button
                   disabled={saving}
@@ -1033,7 +1004,7 @@ const SkinPage = ({
 
               <div className="grid gap-6 p-5 md:grid-cols-[300px_minmax(0,1fr)]">
                 <div>
-                  <div className="h-[400px] overflow-hidden rounded-xl border border-slate-800 bg-[radial-gradient(circle_at_50%_25%,rgba(59,130,246,0.2),transparent_42%),#0b1322]">
+                  <div className="nam-skin-editor-preview h-[400px] overflow-hidden rounded-xl border border-slate-800 bg-[radial-gradient(circle_at_50%_25%,rgba(59,130,246,0.2),transparent_42%),#0b1322]">
                     <SkinViewer
                       skin={draft.textureDataUrl}
                       cape={library?.offlineOnly
@@ -1163,7 +1134,7 @@ const SkinPage = ({
                           >
                             <CapeFront texture={cape.textureDataUrl} className="h-full w-full rounded-lg" />
                             {draft.capeId === cape.id && (
-                              <span className="absolute -right-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#111a2c] bg-blue-500 text-white shadow-lg shadow-blue-950/40 ring-2 ring-blue-300/25">
+                              <span className="nam-skin-editor-check absolute -right-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#111a2c] bg-blue-500 text-white shadow-lg shadow-blue-950/40 ring-2 ring-blue-300/25">
                                 <Check size={11} strokeWidth={3} />
                               </span>
                             )}

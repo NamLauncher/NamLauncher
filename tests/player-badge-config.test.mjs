@@ -23,7 +23,6 @@ test('normalizes compact and dashed Minecraft UUIDs without accepting arbitrary 
   )
   assert.equal(normalizePlayerBadgeUuid('not-a-player-uuid'), null)
 })
-
 test('writes a bounded secret-free player badge configuration and disables invalid identities', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'namlauncher-badge-config-'))
   try {
@@ -58,7 +57,6 @@ test('writes a bounded secret-free player badge configuration and disables inval
     await rm(root, { recursive: true, force: true })
   }
 })
-
 test('rejects third-party endpoints and a symlinked configuration directory', async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'namlauncher-badge-safe-'))
   const outside = await mkdtemp(path.join(os.tmpdir(), 'namlauncher-badge-outside-'))
@@ -85,11 +83,10 @@ test('rejects third-party endpoints and a symlinked configuration directory', as
     await rm(outside, { recursive: true, force: true })
   }
 })
-
 test('wires the default-enabled setting, launch configuration, presence heartbeat, and shutdown', async () => {
   const [mainSource, appSource, textSource] = await Promise.all([
-    readFile(path.resolve('electron', 'main.ts'), 'utf8'),
-    readFile(path.resolve('src', 'App.tsx'), 'utf8'),
+    (await import('./sourceText.mjs')).readElectronMainSource(),
+    (await import('./sourceText.mjs')).readRendererAppSource(),
     readFile(path.resolve('src', 'appText.ts'), 'utf8')
   ])
   assert.match(mainSource, /playerBadgeEnabled: settings\.playerBadgeEnabled \?\? true/)

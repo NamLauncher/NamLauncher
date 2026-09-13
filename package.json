@@ -3,22 +3,15 @@
   "productName": "NamLauncher",
   "desktopName": "namlauncher.desktop",
   "description": "NamLauncher Minecraft launcher",
-  "version": "1.2.3",
+  "version": "1.2.4-beta3",
   "author": "nattapat2871 (https://nattapat2871.me)",
-  "license": "GPL-3.0-only",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/NamLauncher/NamLauncher.git"
-  },
-  "bugs": {
-    "url": "https://github.com/NamLauncher/NamLauncher/issues"
-  },
   "homepage": "https://namlauncher.nattapat2871.me",
   "main": "dist-electron/main.js",
   "build": {
     "appId": "com.namlauncher.app",
     "productName": "NamLauncher",
     "npmRebuild": false,
+    "afterPack": "scripts/write-windows-bundle-manifest.cjs",
     "publish": [
       {
         "provider": "generic",
@@ -42,6 +35,10 @@
       {
         "from": "packaging/update-windows.ps1",
         "to": "updater/update-windows.ps1"
+      },
+      {
+        "from": "packaging/update-windows-bundle.ps1",
+        "to": "updater/update-windows-bundle.ps1"
       },
       {
         "from": "build/namlauncher.ico",
@@ -79,10 +76,16 @@
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "build/namlauncher.ico",
-      "artifactName": "NamLauncher-${version}-Installer.${ext}"
+      "artifactName": "NamLauncher-${version}-Windows-${arch}.${ext}"
     },
     "mac": {
       "target": [
@@ -188,6 +191,7 @@
       "compression": "zstd"
     },
     "nsis": {
+      "artifactName": "NamLauncher-${version}-Installer.${ext}",
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
@@ -212,7 +216,8 @@
     "prebuild": "node scripts/prepare-authlib-injector.mjs",
     "build": "tsc && vite build",
     "predist:win": "node scripts/assert-release-metadata.mjs && node scripts/assert-error-report-token.mjs && node scripts/assert-no-required-native-addons.mjs",
-    "dist:win": "npm run prepare:game-bridge && npm run build && node scripts/verify-error-report-token-in-build.mjs && electron-builder --win nsis --x64 --publish never && node scripts/ensure-installer-icon.mjs && node scripts/stage-release-artifacts.mjs win",
+    "dist:win": "npm run prepare:game-bridge && npm run build && node scripts/verify-error-report-token-in-build.mjs && electron-builder --win nsis zip --x64 --publish never && node scripts/ensure-installer-icon.mjs && node scripts/stage-release-artifacts.mjs win",
+    "dist:win:local": "npm run prepare:game-bridge && npm run build && node scripts/verify-error-report-token-in-build.mjs && electron-builder --win nsis zip --x64 --publish never && node scripts/ensure-installer-icon.mjs",
     "predist:linux": "node scripts/assert-release-metadata.mjs && node scripts/assert-error-report-token.mjs && node scripts/assert-no-required-native-addons.mjs",
     "dist:linux": "npm run prepare:game-bridge && npm run build && node scripts/verify-error-report-token-in-build.mjs && electron-builder --linux AppImage deb rpm flatpak pacman --x64 --publish never && node scripts/verify-linux-package-sandbox.mjs && node scripts/stage-release-artifacts.mjs linux",
     "predist:mac": "node scripts/assert-release-metadata.mjs && node scripts/assert-error-report-token.mjs && node scripts/assert-no-required-native-addons.mjs && bash packaging/mac/prepare-icon.sh",

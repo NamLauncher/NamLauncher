@@ -5,7 +5,7 @@ import test from 'node:test'
 import vm from 'node:vm'
 import ts from 'typescript'
 
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 const appTextSource = await readFile(new URL('../src/appText.ts', import.meta.url), 'utf8')
 const storageSource = await readFile(new URL('../src/storageKeys.ts', import.meta.url), 'utf8')
 const legalSource = await readFile(new URL('../electron/legal.ts', import.meta.url), 'utf8')

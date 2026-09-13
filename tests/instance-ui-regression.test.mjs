@@ -1,10 +1,15 @@
+// Author/creator: nattapat2871 (https://nattapat2871.me)
+
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 const appCss = await readFile(new URL('../src/index.css', import.meta.url), 'utf8')
 const storageSource = await readFile(new URL('../src/storageKeys.ts', import.meta.url), 'utf8')
+const instancesViewSource = await readFile(new URL('../src/views/InstancesView.tsx', import.meta.url), 'utf8')
+const providerIconSource = await readFile(new URL('../src/components/ProviderIcon.tsx', import.meta.url), 'utf8')
+const instanceSelectSource = await readFile(new URL('../src/components/InstanceSelect.tsx', import.meta.url), 'utf8')
 
 test('keeps instance content search usable after returning from Library', () => {
   assert.match(appSource, /const \[instanceContentQuery, setInstanceContentQuery\] = useState\(''\)/)
@@ -63,9 +68,48 @@ test('uses full version selects in instance installation settings', () => {
   assert.match(appSource, /const getMinecraftVersionId = \(version: any\)/)
   assert.match(appSource, /const instanceSettingsGameVersionOptions = uniqueStrings/)
   assert.match(appSource, /const instanceSettingsLoaderVersionOptions = uniqueStrings/)
-  assert.match(appSource, /onFocus=\{\(\) => void ensureMinecraftVersionList\(\)\}/)
-  assert.match(appSource, /instanceSettingsGameVersionOptions\.map\(\(version\) =>/)
-  assert.match(appSource, /instanceSettingsLoaderVersionOptions\.map\(\(loaderId\) =>/)
+  assert.match(appSource, /testId="instance-settings-game-version-select"/)
+  assert.match(appSource, /onOpen=\{\(\) => void ensureMinecraftVersionList\(\)\}/)
+  assert.match(appSource, /options=\{instanceSettingsGameVersionOptions\.map\(\(version\) =>/)
+  assert.match(appSource, /options=\{instanceSettingsLoaderVersionOptions\.map\(\(loaderId\) =>/)
+  assert.match(appSource, /testId="instance-settings-loader-version-select"/)
+  assert.match(appSource, /renderIcon=\{\(\) => <LoaderIcon loader=\{instanceSettingsDraft\.loader\}/)
+  assert.doesNotMatch(appSource, /<select[\s\S]{0,500}instanceSettingsGameVersionOptions/)
   assert.doesNotMatch(appSource, /id="instance-settings-game-versions"/)
   assert.doesNotMatch(appSource, /id="instance-settings-loader-versions"/)
+})
+
+test('separates stable and unstable loader builds with semantic status badges', () => {
+  assert.match(instanceSelectSource, /data-tone=\{detailTone\}/)
+  assert.match(instanceSelectSource, /tone === 'stable'[\s\S]*text-emerald-200/)
+  assert.match(instanceSelectSource, /tone === 'unstable'[\s\S]*text-amber-200/)
+  assert.match(appCss, /nam-instance-select-detail\[data-tone='stable'\][\s\S]*#155a35/)
+  assert.match(appCss, /nam-instance-select-detail\[data-tone='unstable'\][\s\S]*#75430a/)
+})
+
+test('shows a themed one-click loader update card in installation settings', () => {
+  assert.match(appSource, /getLoaderUpdateCandidate/)
+  assert.match(appSource, /data-testid="instance-loader-update-card"/)
+  assert.match(appSource, /updateInstanceLoaderNow/)
+  assert.match(appSource, /updates: \{ loaderVersion: update\.latestVersion \}/)
+  assert.match(appSource, /<LoaderIcon loader=\{instanceSettingsTarget\.loader\}/)
+})
+
+test('shows dismissible loader updates inside the selected instance content panel', () => {
+  assert.match(appSource, /getLoaderUpdateDismissalKey/)
+  assert.match(appSource, /currentTargetLoaderUpdate/)
+  assert.match(appSource, /getLoaderVersions\(currentTarget\.loader, currentTarget\.version\)/)
+  assert.match(appSource, /data-testid="instance-content-loader-update-card"/)
+  assert.match(appSource, /updateCurrentTargetLoaderNow/)
+  assert.match(appSource, /dismissCurrentTargetLoaderUpdate/)
+  assert.match(appSource, /instance\.id,[\s\S]*instance\.loader,[\s\S]*instance\.version,[\s\S]*update\.latestVersion/)
+  assert.match(storageSource, /loaderUpdateDismissals: 'namlauncher_loader_update_dismissals_v1'/)
+})
+
+test('shows brand and local-device icons before installed content source labels', () => {
+  assert.match(instancesViewSource, /<ProviderIcon provider=\{item\.source\} size=\{11\} \/>/)
+  assert.match(instancesViewSource, /<HardDrive size=\{11\} aria-hidden="true"/)
+  assert.match(instancesViewSource, /inline-flex shrink-0 items-center gap-1/)
+  assert.match(providerIconSource, /size\?: number/)
+  assert.match(providerIconSource, /provider === 'modrinth' \? '#00af5c' : '#f16436'/)
 })

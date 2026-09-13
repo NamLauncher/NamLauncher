@@ -12,7 +12,10 @@ const aurSource = await readFile(new URL('../scripts/generate-aur-metadata.mjs',
 const fixtureVersion = '9.8.7-integrity-test'
 
 const artifactNames = {
-  win: [`NamLauncher-${fixtureVersion}-Installer.exe`],
+  win: [
+    `NamLauncher-${fixtureVersion}-Installer.exe`,
+    `NamLauncher-${fixtureVersion}-Windows-x64.zip`
+  ],
   linux: [
     `NamLauncher-${fixtureVersion}-Linux-x64.AppImage`,
     `NamLauncher-${fixtureVersion}-Linux-x64.deb`,
@@ -27,7 +30,8 @@ const digest = (contents) => createHash('sha256').update(contents).digest('hex')
 const runStageScript = (fixtureRoot, target) => new Promise((resolve, reject) => {
   const child = spawn(process.execPath, ['scripts/stage-release-artifacts.mjs', target], {
     cwd: fixtureRoot,
-    stdio: ['ignore', 'pipe', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, NAMLAUNCHER_ALLOW_PRERELEASE_STAGE: '1' }
   })
   let stdout = ''
   let stderr = ''
@@ -43,8 +47,7 @@ const createStageFixture = async () => {
   const fixtureRoot = await mkdtemp(path.join(tmpdir(), 'namlauncher-release-integrity-'))
   await mkdir(path.join(fixtureRoot, 'scripts'), { recursive: true })
   await mkdir(path.join(fixtureRoot, 'release'), { recursive: true })
-  await mkdir(path.join(fixtureRoot, 'website', 'downloads'), { recursive: true })
-  await mkdir(path.join(fixtureRoot, 'website', 'static', 'assets'), { recursive: true })
+  await mkdir(path.join(fixtureRoot, 'release', 'staged'), { recursive: true })
   await writeFile(
     path.join(fixtureRoot, 'package.json'),
     JSON.stringify({ version: fixtureVersion }),
@@ -53,7 +56,7 @@ const createStageFixture = async () => {
   await writeFile(path.join(fixtureRoot, 'scripts', 'stage-release-artifacts.mjs'), stageSource, 'utf8')
   await writeFile(path.join(fixtureRoot, 'scripts', 'generate-aur-metadata.mjs'), aurSource, 'utf8')
   await writeFile(
-    path.join(fixtureRoot, 'website', 'static', 'assets', 'namlauncher-icon.png'),
+    path.join(fixtureRoot, 'NamLauncher-icon.png'),
     Buffer.alloc(2048, 0x69)
   )
   return fixtureRoot
@@ -65,37 +68,47 @@ test('stages Windows artifacts and checksums immutably', async (context) => {
   const fixtureRoot = await createStageFixture()
   context.after(() => rm(fixtureRoot, { recursive: true, force: true }))
 
-  const fileName = artifactNames.win[0]
-  const releaseArtifact = path.join(fixtureRoot, 'release', fileName)
-  const downloadArtifact = path.join(fixtureRoot, 'website', 'downloads', fileName)
   const manifestName = `NamLauncher-${fixtureVersion}-Windows-SHA256SUMS.txt`
   const releaseManifest = path.join(fixtureRoot, 'release', manifestName)
-  const downloadManifest = path.join(fixtureRoot, 'website', 'downloads', manifestName)
-  const firstBytes = Buffer.alloc(4096, 0x57)
-  const checksum = expectedChecksum(fileName, firstBytes)
-  await writeFile(releaseArtifact, firstBytes)
+  const downloadManifest = path.join(fixtureRoot, 'release', 'staged', manifestName)
+  const artifacts = artifactNames.win.map((fileName, index) => {
+    const bytes = Buffer.alloc(4096 + index, 0x57 + index)
+    return {
+      bytes,
+      checksum: expectedChecksum(fileName, bytes),
+      downloadArtifact: path.join(fixtureRoot, 'release', 'staged', fileName),
+      fileName,
+      releaseArtifact: path.join(fixtureRoot, 'release', fileName)
+    }
+  })
+  for (const artifact of artifacts) {
+    await writeFile(artifact.releaseArtifact, artifact.bytes)
+  }
+  const manifest = artifacts.map(({ checksum }) => checksum.trimEnd()).join('\n') + '\n'
 
   const firstRun = await runStageScript(fixtureRoot, 'win')
   assert.equal(firstRun.code, 0, firstRun.stderr)
-  assert.deepEqual(await readFile(downloadArtifact), firstBytes)
-  assert.equal(await readFile(`${releaseArtifact}.sha256`, 'utf8'), checksum)
-  assert.equal(await readFile(`${downloadArtifact}.sha256`, 'utf8'), checksum)
-  assert.equal(await readFile(releaseManifest, 'utf8'), checksum)
-  assert.equal(await readFile(downloadManifest, 'utf8'), checksum)
+  for (const artifact of artifacts) {
+    assert.deepEqual(await readFile(artifact.downloadArtifact), artifact.bytes)
+    assert.equal(await readFile(`${artifact.releaseArtifact}.sha256`, 'utf8'), artifact.checksum)
+    assert.equal(await readFile(`${artifact.downloadArtifact}.sha256`, 'utf8'), artifact.checksum)
+  }
+  assert.equal(await readFile(releaseManifest, 'utf8'), manifest)
+  assert.equal(await readFile(downloadManifest, 'utf8'), manifest)
 
   const identicalRun = await runStageScript(fixtureRoot, 'win')
   assert.equal(identicalRun.code, 0, identicalRun.stderr)
   assert.match(identicalRun.stdout, /Already staged immutable/)
 
-  await writeFile(releaseArtifact, Buffer.alloc(4096, 0x58))
+  await writeFile(artifacts[0].releaseArtifact, Buffer.alloc(4096, 0x59))
   const conflictingRun = await runStageScript(fixtureRoot, 'win')
   assert.notEqual(conflictingRun.code, 0)
   assert.match(conflictingRun.stderr, /Refusing to overwrite a non-identical release checksum/)
-  assert.deepEqual(await readFile(downloadArtifact), firstBytes)
-  assert.equal(await readFile(`${downloadArtifact}.sha256`, 'utf8'), checksum)
-  assert.equal(await readFile(downloadManifest, 'utf8'), checksum)
+  assert.deepEqual(await readFile(artifacts[0].downloadArtifact), artifacts[0].bytes)
+  assert.equal(await readFile(`${artifacts[0].downloadArtifact}.sha256`, 'utf8'), artifacts[0].checksum)
+  assert.equal(await readFile(downloadManifest, 'utf8'), manifest)
 
-  const remainingNames = await readdir(path.join(fixtureRoot, 'website', 'downloads'))
+  const remainingNames = await readdir(path.join(fixtureRoot, 'release', 'staged'))
   assert.equal(remainingNames.some((name) => name.endsWith('.tmp') || name.endsWith('.stage.lock')), false)
 })
 
@@ -112,7 +125,7 @@ test('stages every Linux package with per-file checksums, a manifest, and AUR me
   const expectedManifest = `${expectedLines.join('\n')}\n`
   const manifestName = `NamLauncher-${fixtureVersion}-Linux-SHA256SUMS.txt`
   const releaseManifest = path.join(fixtureRoot, 'release', manifestName)
-  const downloadManifest = path.join(fixtureRoot, 'website', 'downloads', manifestName)
+  const downloadManifest = path.join(fixtureRoot, 'release', 'staged', manifestName)
 
   const firstRun = await runStageScript(fixtureRoot, 'linux')
   assert.equal(firstRun.code, 0, firstRun.stderr)
@@ -122,7 +135,7 @@ test('stages every Linux package with per-file checksums, a manifest, and AUR me
   for (const [index, fileName] of artifactNames.linux.entries()) {
     const bytes = Buffer.alloc(4096 + index, 0x41 + index)
     const releaseArtifact = path.join(fixtureRoot, 'release', fileName)
-    const downloadArtifact = path.join(fixtureRoot, 'website', 'downloads', fileName)
+    const downloadArtifact = path.join(fixtureRoot, 'release', 'staged', fileName)
     const checksum = expectedChecksum(fileName, bytes)
     assert.deepEqual(await readFile(downloadArtifact), bytes)
     assert.equal(await readFile(`${releaseArtifact}.sha256`, 'utf8'), checksum)
@@ -156,5 +169,5 @@ test('preflights all Linux outputs before staging any package', async (context) 
   const run = await runStageScript(fixtureRoot, 'linux')
   assert.notEqual(run.code, 0)
   assert.match(run.stderr, /Release artifact is missing or invalid/)
-  assert.deepEqual(await readdir(path.join(fixtureRoot, 'website', 'downloads')), [])
+  assert.deepEqual(await readdir(path.join(fixtureRoot, 'release', 'staged')), [])
 })

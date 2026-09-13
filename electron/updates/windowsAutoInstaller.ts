@@ -28,7 +28,7 @@ export type WindowsAutoInstallerHandoff = WindowsAutoInstallerExpectation & {
 
 const wait = (milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds))
 
-const startIndependentPowerShell = async (options: {
+export const startIndependentPowerShell = async (options: {
   powershellPath: string
   args: string[]
   nonce: string

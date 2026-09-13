@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises'
 
 import { getForgeArtifactCoordinates } from '../electron/minecraft/forgeArtifact.ts'
 
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
 
 test('tries the legacy repeated Minecraft coordinate for Forge 1.7.10 build 1614', () => {
   assert.deepEqual(getForgeArtifactCoordinates('1.7.10', '10.13.4.1614'), [
