@@ -48,6 +48,7 @@ const createStageFixture = async () => {
   await mkdir(path.join(fixtureRoot, 'scripts'), { recursive: true })
   await mkdir(path.join(fixtureRoot, 'release'), { recursive: true })
   await mkdir(path.join(fixtureRoot, 'release', 'staged'), { recursive: true })
+  await mkdir(path.join(fixtureRoot, 'website', 'downloads'), { recursive: true })
   await writeFile(
     path.join(fixtureRoot, 'package.json'),
     JSON.stringify({ version: fixtureVersion }),
