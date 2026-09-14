@@ -4,7 +4,6 @@ param(
   [Parameter(Mandatory=$true)][string]$ExpectedSha256,
   [Parameter(Mandatory=$true)][string]$LauncherPath,
   [Parameter(Mandatory=$true)][int]$ParentId,
-  [Parameter(Mandatory=$true)][ValidateSet('all-users', 'current-user')][string]$InstallScope,
   [Parameter(Mandatory=$true)][string]$StatusPath,
   [Parameter(Mandatory=$true)][string]$CancellationPath,
   [Parameter(Mandatory=$true)][string]$AttemptId,
@@ -102,12 +101,11 @@ try {
     throw 'Automatic installer changed before execution.'
   }
   if (Test-UpdateCancelled) { throw 'Automatic installer handoff was cancelled.' }
-  # NSIS requires /D last, without quotes; it consumes the remaining path.
-  # Preserve the verified registered installation scope. All Users updates
-  # still show the normal Windows UAC confirmation; Current User updates stay
-  # silent. NSIS requires /D last and consumes the remaining path.
-  $scopeArgument = if ($InstallScope -eq 'all-users') { '/allusers' } else { '/currentuser' }
-  $installerArguments = '/S --updated --force-run ' + $scopeArgument + ' /D=' + $launcher.DirectoryName
+  # 1.2.4 and newer always install for the signed-in Windows user. Do not pass
+  # /D here: the launcher may still be running from a legacy Program Files
+  # installation, while the new installer owns the canonical LocalAppData
+  # destination and independently rejects legacy machine-wide/destination arguments.
+  $installerArguments = '/S --updated --force-run /currentuser'
   $startOptions = @{ FilePath=$InstallerPath; ArgumentList=$installerArguments; PassThru=$true; WindowStyle='Hidden' }
   $installation = Start-Process @startOptions
   if (-not $installation -or $installation.Id -lt 1) { throw 'Windows did not start the verified installer.' }

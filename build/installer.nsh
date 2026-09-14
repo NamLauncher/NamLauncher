@@ -12,19 +12,25 @@
 
 !ifndef BUILD_UNINSTALLER
 !macro customInit
-  ${GetParameters} $R8
-  ClearErrors
-  ${GetOptions} $R8 "--choose-install-mode" $R9
-  ${IfNot} ${Errors}
-    ${IfNot} ${Silent}
-      ; Manual updates deliberately show electron-builder's guarded All Users
-      ; / Current User page. The selected mode then restores its registered
-      ; install directory, while automatic updates preserve the existing mode.
-      StrCpy $hasPerMachineInstallation "0"
-      StrCpy $hasPerUserInstallation "0"
-      StrCpy $installMode ""
-    ${EndIf}
-  ${EndIf}
+  ; NamLauncher 1.2.4 and newer are Current User applications. Explicitly
+  ; override the mode and destination after electron-builder has inspected the
+  ; registry and command line. This compatibility boundary is required because
+  ; the already-released 1.2.3 updater can pass both /allusers and
+  ; /D=<Program Files>. The old machine-wide installation is deliberately left
+  ; intact until the new launcher has verified its preserved data and performs
+  ; the separate, guarded one-time cleanup.
+  StrCpy $hasPerMachineInstallation "0"
+  StrCpy $hasPerUserInstallation "1"
+  !insertmacro setInstallModePerUser
+  StrCpy $INSTDIR "$LOCALAPPDATA\Programs\NamLauncher\Launcher"
+!macroend
+
+; Skip electron-builder's install-mode chooser even for an interactive setup.
+; The uninstaller must retain its normal registry-based scope detection, so the
+; override is only defined for the installer build.
+!macro customInstallMode
+  StrCpy $isForceMachineInstall "0"
+  StrCpy $isForceCurrentInstall "1"
 !macroend
 
 Function NormalizeLauncherInstallDirectory

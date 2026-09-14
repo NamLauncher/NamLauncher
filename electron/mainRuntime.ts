@@ -4213,22 +4213,16 @@ const runStartupLauncherUpdateOnce = createStartupUpdateController({
         assertLauncherUpdateInstallIsSafe()
         sendLauncherUpdateProgress({ state: 'opening-installer', percent: 100 })
         writePendingLauncherUpdateCleanup(downloadedInstallerPath, update.latestVersion)
-        if (installScope) {
-          const handoff = await launchWindowsAutoInstaller({
-            installerPath: downloadedInstallerPath,
-            expectedSha256: installerSha256,
-            launcherPath: process.execPath,
-            helperSource: app.isPackaged ? path.join(process.resourcesPath, 'updater', 'update-windows.ps1') : path.resolve(__dirname, '../packaging/update-windows.ps1'),
-            workDirectory: getLauncherUpdateDownloadDirectory(),
-            parentId: process.pid,
-            installScope
-          })
-          log.info(`Automatic Windows updater handoff ${handoff.attemptId} is ready in detached helper process ${handoff.helperPid}.`)
-          sendLauncherUpdateProgress({ state: 'opening-installer', percent: 100, detail: 'Verified updater helper is ready' })
-        } else {
-          await openDownloadedLauncherInstaller(downloadedInstallerPath, installerSha256)
-          sendLauncherUpdateProgress({ state: 'installer-opened', percent: 100, detail: 'Verified installer opened' })
-        }
+        const handoff = await launchWindowsAutoInstaller({
+          installerPath: downloadedInstallerPath,
+          expectedSha256: installerSha256,
+          launcherPath: process.execPath,
+          helperSource: app.isPackaged ? path.join(process.resourcesPath, 'updater', 'update-windows.ps1') : path.resolve(__dirname, '../packaging/update-windows.ps1'),
+          workDirectory: getLauncherUpdateDownloadDirectory(),
+          parentId: process.pid
+        })
+        log.info(`Automatic Windows updater handoff ${handoff.attemptId} is ready in detached helper process ${handoff.helperPid}.`)
+        sendLauncherUpdateProgress({ state: 'opening-installer', percent: 100, detail: 'Verified updater helper is ready' })
         quitLauncherForUpdateInstaller()
       } else {
         await installPlatformAutoUpdate({

@@ -9,7 +9,6 @@ import {
   type WindowsAutoInstallerExpectation,
   type WindowsAutoInstallerStatus
 } from '../../shared/startupUpdate.ts'
-import type { WindowsInstallScope } from './windowsInstallScope.ts'
 
 const READY_TIMEOUT_MS = 15_000
 const BROKER_TIMEOUT_MS = 15_000
@@ -220,7 +219,6 @@ export const launchWindowsAutoInstaller = async (options: {
   helperSource: string
   workDirectory: string
   parentId: number
-  installScope: WindowsInstallScope
   readyTimeoutMs?: number
 }): Promise<WindowsAutoInstallerHandoff> => {
   assertFileSha256(options.installerPath, options.expectedSha256)
@@ -234,10 +232,6 @@ export const launchWindowsAutoInstaller = async (options: {
   if (path.dirname(installer) !== directory || !/\.exe$/i.test(installer)) throw new Error('Unsafe automatic installer location.')
   if (!/\.exe$/i.test(launcher)) throw new Error('Unsafe launcher executable path.')
   if (!Number.isSafeInteger(options.parentId) || options.parentId < 1) throw new Error('Invalid launcher process id.')
-  if (options.installScope !== 'all-users' && options.installScope !== 'current-user') {
-    throw new Error('Invalid Windows installation scope.')
-  }
-
   removeStaleHandoffFiles(directory)
   const attemptId = crypto.randomUUID()
   const nonce = crypto.randomBytes(32).toString('hex')
@@ -252,7 +246,6 @@ export const launchWindowsAutoInstaller = async (options: {
   const args = ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', helperPath,
     '-InstallerPath', installer, '-ExpectedSha256', options.expectedSha256,
     '-LauncherPath', launcher, '-ParentId', String(options.parentId),
-    '-InstallScope', options.installScope,
     '-StatusPath', statusPath, '-CancellationPath', cancellationPath,
     '-AttemptId', attemptId, '-Nonce', nonce]
 

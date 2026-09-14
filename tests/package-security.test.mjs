@@ -130,9 +130,10 @@ test('ships AppImage with a fail-closed Chromium namespace sandbox', () => {
 test('defaults Windows builds to per-user installs so automatic updates do not require elevation', () => {
   assert.equal(packageJson.build.nsis.perMachine, false)
   assert.equal(packageJson.build.nsis.oneClick, false)
-  assert.equal(packageJson.build.nsis.allowElevation, true)
+  assert.equal(packageJson.build.nsis.allowToChangeInstallationDirectory, false)
+  assert.equal(packageJson.build.nsis.allowElevation, false)
   assert.equal(packageJson.build.nsis.selectPerMachineByDefault, false)
-  assert.equal(packageJson.build.nsis.packElevateHelper, true)
+  assert.equal(packageJson.build.nsis.packElevateHelper, false)
 })
 
 test('keeps the launcher window within a supported minimum size', () => {
