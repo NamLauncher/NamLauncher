@@ -91,7 +91,6 @@ import {
 import { getLauncherUpdateCleanupRetryDelay } from '../shared/launcherUpdateCleanup.ts'
 import { createStartupUpdateController, selectStartupUpdateTarget } from '../shared/startupUpdate.ts'
 import { launchWindowsAutoInstaller } from './updates/windowsAutoInstaller.ts'
-import { resolveWindowsInstallScope } from './updates/windowsInstallScope.ts'
 import { installPlatformAutoUpdate } from './updates/platformAutoUpdate.ts'
 import { recoverLegacyLauncherDataPath } from './dataLocationRecovery.ts'
 import { WindowResponsivenessMonitor } from './windowResponsiveness.ts'
@@ -3991,7 +3990,6 @@ const runStartupLauncherUpdateOnce = createStartupUpdateController({
       assertLauncherUpdateInstallIsSafe()
       persistLauncherDataLocationForUpdate()
       if (target === 'windows-x64') {
-        const installScope = resolveWindowsInstallScope(process.execPath)
         const downloadUrl = assertTrustedLauncherUpdateUrl(update.downloadUrl)
         const installerSha256 = normalizeLauncherInstallerSha256(update.installerSha256)
         if (!installerSha256) throw new Error('Automatic update requires a verified SHA-256 checksum.')
@@ -4007,8 +4005,7 @@ const runStartupLauncherUpdateOnce = createStartupUpdateController({
           launcherPath: process.execPath,
           helperSource: app.isPackaged ? path.join(process.resourcesPath, 'updater', 'update-windows.ps1') : path.resolve(__dirname, '../packaging/update-windows.ps1'),
           workDirectory: getLauncherUpdateDownloadDirectory(),
-          parentId: process.pid,
-          installScope
+          parentId: process.pid
         })
         log.info(`Automatic Windows updater handoff ${handoff.attemptId} is ready in detached helper process ${handoff.helperPid}.`)
         sendLauncherUpdateProgress({ state: 'opening-installer', percent: 100, detail: 'Verified updater helper is ready' })

@@ -109,7 +109,7 @@ test('Windows automatic installer handoff rejects stale status and requires exac
   }
 })
 
-test('Windows automatic update preserves the registered Current User or All Users scope', () => {
+test('Windows registry inspection still identifies Current User and legacy All Users installs', () => {
   const launcher = String.raw`D:\Minecraft\NamLauncher\Launcher\NamLauncher.exe`
   assert.equal(resolveWindowsInstallScopeFromRecords(launcher, [{
     hive: 'HKLM',
@@ -171,6 +171,7 @@ test('keeps the old manual updater and enforces required updates at the main-pro
   const platform = await readFile(new URL('../electron/updates/platformAutoUpdate.ts', import.meta.url), 'utf8')
   const windowsHelper = await readFile(new URL('../packaging/update-windows.ps1', import.meta.url), 'utf8')
   const windowsInstaller = await readFile(new URL('../build/installer.nsh', import.meta.url), 'utf8')
+  const windowsHandoff = await readFile(new URL('../electron/updates/windowsAutoInstaller.ts', import.meta.url), 'utf8')
   assert.match(main, /trustedIpcHandle\('install-launcher-update'/)
   assert.match(main, /trustedIpcHandle\('run-startup-launcher-update'/)
   assert.match(main, /trustedIpcHandle\('launch-minecraft',[\s\S]{0,250}startupUpdatePending \|\| requiredLauncherUpdateVersion/)
@@ -182,13 +183,17 @@ test('keeps the old manual updater and enforces required updates at the main-pro
   assert.match(platform, /updater\.autoInstallOnAppQuit = false/)
   assert.match(platform, /updater\.allowDowngrade = false/)
   assert.match(windowsHelper, /\/S --updated --force-run/)
-  assert.match(windowsHelper, /\/allusers/)
   assert.match(windowsHelper, /\/currentuser/)
-  assert.match(windowsHelper, /ValidateSet\('all-users', 'current-user'\)/)
+  assert.doesNotMatch(windowsHelper, /\/allusers/)
+  assert.doesNotMatch(windowsHelper, /ValidateSet\('all-users', 'current-user'\)/)
+  assert.doesNotMatch(windowsHelper, /\/D=/)
   assert.doesNotMatch(windowsHelper, /Verb\s*=\s*['"]RunAs['"]/)
   assert.doesNotMatch(windowsHelper, /RequireElevation/)
-  assert.match(windowsInstaller, /--choose-install-mode/)
-  assert.match(windowsInstaller, /StrCpy \$installMode ""/)
+  assert.doesNotMatch(windowsHandoff, /installScope/)
+  assert.match(windowsInstaller, /!insertmacro setInstallModePerUser/)
+  assert.match(windowsInstaller, /StrCpy \$isForceCurrentInstall "1"/)
+  assert.match(windowsInstaller, /StrCpy \$INSTDIR "\$LOCALAPPDATA\\Programs\\NamLauncher\\Launcher"/)
+  assert.doesNotMatch(windowsInstaller, /--choose-install-mode/)
   assert.doesNotMatch(windowsInstaller, /NamLauncherAutomaticCurrentUserUpdate/)
   assert.doesNotMatch(windowsInstaller, /DeleteRegKey HKLM "\$\{INSTALL_REGISTRY_KEY\}"/)
   assert.doesNotMatch(windowsInstaller, /DeleteRegKey HKLM "\$\{UNINSTALL_REGISTRY_KEY\}"/)
