@@ -29,10 +29,26 @@ npm test
 
 `npm run prepare:game-bridge` verifies the bundled companion manifest, sizes,
 SHA-256 hashes, mod identities, and protected icon resources. It never compiles
-the private companion source in this public repository.
+the companion source in this repository; those sources and their build tooling
+are maintained in the separate public
+[`NamLauncher/minecraft-companions`](https://github.com/NamLauncher/minecraft-companions)
+repository.
 
 See [docs/architecture.md](docs/architecture.md) for repository ownership and
 [docs/development.md](docs/development.md) for the stable/development workflow.
+
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://signpath.io/), certificate
+by [SignPath Foundation](https://signpath.org/).
+
+NamLauncher signs only release artifacts produced from its own public source
+and public build scripts. Every signing request must be created from a reviewed
+release commit and manually approved; signing never publishes a release by
+itself. The complete policy, team roles, scope, and verification process are in
+[CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md). The user-data and network
+behavior covered by signed releases is documented in the
+[NamLauncher Privacy Notice](https://namlauncher.nattapat2871.me/legal).
 
 ## Security and privacy
 
