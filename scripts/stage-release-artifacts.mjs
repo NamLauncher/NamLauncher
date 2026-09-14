@@ -225,7 +225,7 @@ for (const platformTarget of selectedTargets) {
 
 if (selectedTargets.includes('linux')) {
   const appImageSha256 = stagedByTarget.get('linux')[0].digest
-  const iconSha256 = await sha256(path.join(projectRoot, 'website', 'static', 'assets', 'namlauncher-icon.png'))
+  const iconSha256 = await sha256(path.join(projectRoot, 'NamLauncher-icon.png'))
   await new Promise((resolve, reject) => {
     const child = spawn(
       process.execPath,

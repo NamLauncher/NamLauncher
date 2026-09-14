@@ -34,6 +34,20 @@ are maintained in the separate public
 [`NamLauncher/minecraft-companions`](https://github.com/NamLauncher/minecraft-companions)
 repository.
 
+## Verified CI releases
+
+The `Build and publish stable desktop release` workflow builds Windows x64,
+Linux x64, and a macOS universal package from one immutable commit. A dry run
+only uploads short-lived GitHub Actions artifacts. Stable publication additionally
+requires an exact `vX.Y.Z` tag, SignPath approval for the Windows installer,
+successful SHA-256 and provenance checks, and approval through the protected
+`stable-production` GitHub environment.
+
+Normal pushes and pull requests never publish downloads. Beta, alpha, and RC
+versions are rejected by the stable release workflow. Production download
+deployment is performed from the private Platform repository after it verifies
+the public GitHub Release.
+
 See [docs/architecture.md](docs/architecture.md) for repository ownership and
 [docs/development.md](docs/development.md) for the stable/development workflow.
 

@@ -27,7 +27,7 @@ const main = async () => {
   const version = String(packageJson.version || '').trim()
   if (!/^\d+\.\d+\.\d+$/.test(version)) fail('package.json contains an invalid release version.')
 
-  const changelog = await readFile(path.join(projectRoot, 'website', 'content', 'changelog.md'), 'utf8')
+  const changelog = await readFile(path.join(projectRoot, 'CHANGELOG.md'), 'utf8')
   const normalizedChangelog = changelog.replace(/\r\n?/g, '\n')
   const sectionStart = normalizedChangelog.indexOf(`## ${version}\n`)
   if (sectionStart < 0) fail(`changelog section ${version} is missing.`)

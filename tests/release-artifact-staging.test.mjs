@@ -44,7 +44,6 @@ const createStageFixture = async () => {
   await mkdir(path.join(fixtureRoot, 'scripts'), { recursive: true })
   await mkdir(path.join(fixtureRoot, 'release'), { recursive: true })
   await mkdir(path.join(fixtureRoot, 'website', 'downloads'), { recursive: true })
-  await mkdir(path.join(fixtureRoot, 'website', 'static', 'assets'), { recursive: true })
   await writeFile(
     path.join(fixtureRoot, 'package.json'),
     JSON.stringify({ version: fixtureVersion }),
@@ -52,10 +51,7 @@ const createStageFixture = async () => {
   )
   await writeFile(path.join(fixtureRoot, 'scripts', 'stage-release-artifacts.mjs'), stageSource, 'utf8')
   await writeFile(path.join(fixtureRoot, 'scripts', 'generate-aur-metadata.mjs'), aurSource, 'utf8')
-  await writeFile(
-    path.join(fixtureRoot, 'website', 'static', 'assets', 'namlauncher-icon.png'),
-    Buffer.alloc(2048, 0x69)
-  )
+  await writeFile(path.join(fixtureRoot, 'NamLauncher-icon.png'), Buffer.alloc(2048, 0x69))
   return fixtureRoot
 }
 
