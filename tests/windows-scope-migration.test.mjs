@@ -162,19 +162,20 @@ test('verifies every legacy data file byte-for-byte before cleanup', async (cont
 test('wires cleanup only after renderer readiness and packages a UAC-only helper', async () => {
   const require = createRequire(import.meta.url)
   const packageJson = require('../package.json')
-  const [main, helper, installer] = await Promise.all([
-    readFile(new URL('../electron/main.ts', import.meta.url), 'utf8'),
+  const [mainRuntime, ipcRegistration, helper, installer] = await Promise.all([
+    readFile(new URL('../electron/mainRuntime.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../electron/ipc/registerIpcHandlers.ts', import.meta.url), 'utf8'),
     readFile(new URL('../packaging/cleanup-legacy-windows.ps1', import.meta.url), 'utf8'),
     readFile(new URL('../build/installer.nsh', import.meta.url), 'utf8')
   ])
-  const rendererReadyIndex = main.indexOf("trustedIpcHandle('renderer-ready'")
-  const cleanupCallIndex = main.indexOf('runPendingWindowsScopeMigrationAfterRendererReady()')
+  const rendererReadyIndex = ipcRegistration.indexOf("trustedIpcHandle('renderer-ready'")
+  const cleanupCallIndex = ipcRegistration.indexOf('runPendingWindowsScopeMigrationAfterRendererReady()')
   assert.ok(rendererReadyIndex > 0)
   assert.ok(cleanupCallIndex > rendererReadyIndex)
-  assert.equal([...main.matchAll(/runPendingWindowsScopeMigrationAfterRendererReady\(\)/g)].length, 1)
-  assert.equal([...main.matchAll(/preparePendingWindowsScopeMigration\(update\.latestVersion\)/g)].length, 2)
-  assert.match(main, /await spawnDownloadedLauncherInstaller\(installerPath, \['--updated', '\/currentuser'\]\)/)
-  assert.doesNotMatch(main, /--choose-install-mode/)
+  assert.equal([...ipcRegistration.matchAll(/runPendingWindowsScopeMigrationAfterRendererReady\(\)/g)].length, 1)
+  assert.equal([...mainRuntime.matchAll(/preparePendingWindowsScopeMigration\(update\.latestVersion\)/g)].length, 2)
+  assert.match(mainRuntime, /await spawnDownloadedLauncherInstaller\(installerPath, \['--updated', '\/currentuser'\]\)/)
+  assert.doesNotMatch(mainRuntime, /--choose-install-mode/)
 
   assert.ok(packageJson.build.extraResources.some((resource) => (
     resource.from === 'packaging/cleanup-legacy-windows.ps1'
