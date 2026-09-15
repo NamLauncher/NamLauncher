@@ -20,3 +20,9 @@ test('keeps signed publishing available as an explicit 1.2.5 opt-in', () => {
   assert.match(workflow, /name: release-windows-signed-\$\{\{ inputs\.version \}\}/)
   assert.match(workflow, /inputs\.sign_windows == false \|\| needs\.sign-windows\.result == 'success'/)
 })
+
+test('keeps full Git history in every packaging job for the immutable metadata gate', () => {
+  const checkoutBlocks = workflow.match(/uses: actions\/checkout@[^\n]+\n        with:\n          ref: \$\{\{ needs\.preflight\.outputs\.commit_sha \}\}[\s\S]*?persist-credentials: false/g) || []
+  assert.equal(checkoutBlocks.length, 5)
+  for (const block of checkoutBlocks) assert.match(block, /fetch-depth: 0/)
+})
