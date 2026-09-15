@@ -25,10 +25,10 @@ test('keeps launcher copy and local-storage keys in focused modules', () => {
   assert.doesNotMatch(appSource, /const storage\s*=/)
 })
 
-test('keeps the 1.2.4 beta3 desktop isolated from the stable public identity', () => {
-  assert.equal(packageJson.version, '1.2.4-beta3')
+test('uses the stable 1.2.4 public identity consistently', () => {
+  assert.equal(packageJson.version, '1.2.4')
   assert.equal(packageJson.build.npmRebuild, false)
-  assert.match(appIdentitySource, /LAUNCHER_VERSION = '1\.2\.3'/)
+  assert.match(appIdentitySource, /LAUNCHER_VERSION = '1\.2\.4'/)
   assert.match(electronMainSource, /PROVIDER_USER_AGENT/)
   assert.match(electronLegalSource, /LAUNCHER_USER_AGENT/)
   assert.match(aurPkgbuildSource, /sha256sums=/)

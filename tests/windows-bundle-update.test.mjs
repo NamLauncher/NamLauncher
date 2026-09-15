@@ -150,8 +150,8 @@ const createBundleArchive = (sourceDirectory, bundlePath) => {
 }
 
 const runBundleScenario = async (confirmsHealth) => {
-  const version = '1.2.4-beta3'
-  const root = await mkdtemp(path.join(os.tmpdir(), 'namlauncher-beta3-bundle-'))
+  const version = '1.2.4'
+  const root = await mkdtemp(path.join(os.tmpdir(), 'namlauncher-stable-bundle-'))
   const workDirectory = path.join(root, 'updates')
   const installDirectory = path.join(root, 'NamLauncher')
   const bundleDirectory = path.join(root, 'bundle-source')
@@ -161,7 +161,7 @@ const runBundleScenario = async (confirmsHealth) => {
     await mkdir(installDirectory, { recursive: true })
     const launcherPath = path.join(installDirectory, 'NamLauncher.exe')
     await compileLauncherFixture(launcherPath, false)
-    await writeFile(path.join(installDirectory, 'old-version.txt'), '1.2.4-beta2', 'utf8')
+    await writeFile(path.join(installDirectory, 'old-version.txt'), '1.2.3', 'utf8')
     await writeBundleFixture(bundleDirectory, version, confirmsHealth)
 
     const bundlePath = path.join(workDirectory, getWindowsBundleFileName(version))
@@ -253,7 +253,7 @@ test('Windows bundle markers require the exact attempt, nonce, helper, version, 
     schemaVersion: 1,
     attemptId: expected.attemptId,
     nonce: expected.nonce,
-    version: '1.2.4-beta3',
+    version: '1.2.4',
     launcherPid: 8765,
     at: new Date().toISOString()
   }
@@ -263,7 +263,7 @@ test('Windows bundle markers require the exact attempt, nonce, helper, version, 
     version: health.version,
     launcherPid: health.launcherPid
   }), health)
-  assert.equal(normalizeWindowsBundleHealth({ ...health, version: '1.2.4-beta2' }, {
+  assert.equal(normalizeWindowsBundleHealth({ ...health, version: '1.2.3' }, {
     attemptId: expected.attemptId,
     nonce: expected.nonce,
     version: health.version,
@@ -276,7 +276,7 @@ test('the bridge release uses a bundle only for a Current User install with comp
   assert.equal(shouldUseWindowsApplicationBundle('all-users', 'https://example.invalid/app.zip', 'a'.repeat(64)), false)
   assert.equal(shouldUseWindowsApplicationBundle('current-user', null, 'a'.repeat(64)), false)
   assert.equal(shouldUseWindowsApplicationBundle('current-user', 'https://example.invalid/app.zip', null), false)
-  assert.equal(getWindowsBundleFileName('1.2.4-beta3'), 'NamLauncher-1.2.4-beta3-Windows-x64.zip')
+  assert.equal(getWindowsBundleFileName('1.2.4'), 'NamLauncher-1.2.4-Windows-x64.zip')
 })
 
 test('download validation rejects a changed digest and a non-ZIP payload', async () => {
@@ -284,7 +284,7 @@ test('download validation rejects a changed digest and a non-ZIP payload', async
   try {
     const validPath = path.join(root, 'fixture.zip')
     const archive = new AdmZip()
-    archive.addFile('fixture.txt', Buffer.from('verified beta3 fixture'))
+    archive.addFile('fixture.txt', Buffer.from('verified stable fixture'))
     archive.writeZip(validPath)
     const digest = sha256(validPath)
     assert.equal(assertWindowsBundleArchive(validPath, digest), digest)
@@ -298,7 +298,7 @@ test('download validation rejects a changed digest and a non-ZIP payload', async
   }
 })
 
-test('1.2.4 beta3 bundle replaces a beta2 Current User app and confirms healthy startup', {
+test('1.2.4 stable bundle replaces a 1.2.3 Current User app and confirms healthy startup', {
   skip: process.platform !== 'win32' || !csc,
   timeout: 45_000
 }, async () => {
@@ -306,7 +306,7 @@ test('1.2.4 beta3 bundle replaces a beta2 Current User app and confirms healthy 
   try {
     assert.equal(scenario.updaterResult.code, 0, scenario.updaterResult.stderr)
     assert.equal(scenario.finalStatus.state, 'healthy')
-    assert.equal(await readFile(path.join(scenario.installDirectory, 'version.txt'), 'utf8'), '1.2.4-beta3')
+    assert.equal(await readFile(path.join(scenario.installDirectory, 'version.txt'), 'utf8'), '1.2.4')
     assert.equal(fs.existsSync(path.join(scenario.installDirectory, 'old-version.txt')), false)
     assert.equal(assertWindowsBundleArchive(scenario.bundlePath, scenario.expectedSha256), scenario.expectedSha256)
     assert.equal((await readdir(scenario.root)).some((name) => name.includes('-backup-')), false)
@@ -315,7 +315,7 @@ test('1.2.4 beta3 bundle replaces a beta2 Current User app and confirms healthy 
   }
 })
 
-test('a beta3 bundle that never confirms its UI is rolled back to beta2', {
+test('a stable bundle that never confirms its UI is rolled back to 1.2.3', {
   skip: process.platform !== 'win32' || !csc,
   timeout: 45_000
 }, async () => {
@@ -324,7 +324,7 @@ test('a beta3 bundle that never confirms its UI is rolled back to beta2', {
     assert.equal(scenario.updaterResult.code, 1)
     assert.equal(scenario.finalStatus.state, 'rolled-back')
     assert.match(scenario.finalStatus.detail, /did not confirm a healthy interface/)
-    assert.equal(await readFile(path.join(scenario.installDirectory, 'old-version.txt'), 'utf8'), '1.2.4-beta2')
+    assert.equal(await readFile(path.join(scenario.installDirectory, 'old-version.txt'), 'utf8'), '1.2.3')
     assert.equal(fs.existsSync(path.join(scenario.installDirectory, 'version.txt')), false)
     await waitFor(
       () => fs.existsSync(path.join(scenario.installDirectory, 'fallback.txt')),

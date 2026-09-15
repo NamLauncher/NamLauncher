@@ -1,7 +1,8 @@
 # Development Workflow
 
-`main` contains the latest stable source and currently remains at `1.2.3`.
-`develop` contains the local-only `1.2.4-beta3` integration build.
+`main` contains the latest published stable source.
+`develop` contains the next release integration source. The `codex/release-1.2.4`
+branch qualifies version `1.2.4` without publishing it.
 
 1. Create focused branches from `develop`.
 2. Install dependencies with `npm ci`.

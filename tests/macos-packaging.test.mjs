@@ -52,7 +52,7 @@ const createStageFixture = async () => {
 }
 
 test('configures a deterministic unsigned universal DMG for the beta sandbox', () => {
-  assert.equal(packageJson.version, '1.2.4-beta3')
+  assert.equal(packageJson.version, '1.2.4')
   assert.deepEqual(packageJson.build.mac.target, [{ target: 'dmg', arch: ['universal'] }])
   assert.equal(packageJson.build.mac.icon, 'packaging/mac/generated/namlauncher.icns')
   assert.equal(packageJson.build.mac.category, 'public.app-category.games')

@@ -46,11 +46,11 @@ const makeInstance = async (root, name) => {
   return { instanceRoot, gameDirectory }
 }
 
-test('stages a unique, SHA-256 pinned artifact matrix for launcher 1.2.4 beta3', async () => {
+test('stages a unique, SHA-256 pinned artifact matrix for launcher 1.2.4 stable', async () => {
   const manifest = await readSourceManifest()
   assert.ok(manifest)
   assert.equal(manifest.schemaVersion, 2)
-  assert.equal(manifest.launcherVersion, '1.2.4-beta3')
+  assert.equal(manifest.launcherVersion, '1.2.4')
   assert.equal(manifest.artifacts.length, 10)
   assert.equal(new Set(manifest.artifacts.map((artifact) => `${artifact.loader}:${artifact.minecraftVersion}`)).size, 10)
 
@@ -63,7 +63,7 @@ test('stages a unique, SHA-256 pinned artifact matrix for launcher 1.2.4 beta3',
       assert.match(artifact.version, /^1\.1\.16\+/)
     } else {
       assert.equal(artifact.supportStatus, 'maintained')
-      assert.match(artifact.version, /^1\.2\.4-beta3\+/)
+      assert.match(artifact.version, /^1\.2\.4\+/)
     }
   }
 })

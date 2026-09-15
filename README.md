@@ -33,6 +33,8 @@ the private companion source in this public repository.
 
 See [docs/architecture.md](docs/architecture.md) for repository ownership and
 [docs/development.md](docs/development.md) for the supported branch workflow.
+The manual, approval-gated Windows signing preparation is documented in
+[docs/code-signing.md](docs/code-signing.md).
 
 ### Unsigned macOS test build
 
