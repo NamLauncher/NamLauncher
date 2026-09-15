@@ -78,6 +78,13 @@ import {
   resolveSelectedInstanceId
 } from '../instanceSelection'
 import { uiText, type LauncherLanguage } from '../appText'
+
+const createSecureRandomId = () => {
+  if (typeof globalThis.crypto?.randomUUID !== 'function') {
+    throw new Error('Secure random identifiers are unavailable in this launcher environment.')
+  }
+  return globalThis.crypto.randomUUID()
+}
 import { storage } from '../storageKeys'
 import { resolveHomeModpackArtwork } from '../homeModpackArtwork'
 import { PARTNER_SERVERS, type PartnerServerDefinition } from '../../shared/partnerServers'
@@ -2529,7 +2536,7 @@ export const useLauncherController = () => {
     if (newInstance.loader !== 'vanilla' && !newInstance.loaderVersion) return
 
     const instance: Instance = {
-      id: crypto.randomUUID?.() || String(Date.now()),
+      id: createSecureRandomId(),
       name: newInstance.name.trim(),
       version: newInstance.version,
       loader: newInstance.loader,
@@ -2800,8 +2807,7 @@ export const useLauncherController = () => {
   }
 
   const createInstallTaskId = (prefix: string) => {
-    const id = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
-    return `${prefix}-${id}`
+    return `${prefix}-${createSecureRandomId()}`
   }
 
   const isUserCancelledInstall = (taskId: string) => cancelledInstallTasksRef.current.has(taskId)
@@ -3690,8 +3696,7 @@ export const useLauncherController = () => {
 
     const target = currentTarget
     const kind = contentTab
-    const requestId = globalThis.crypto?.randomUUID?.()
-      || `content-import-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const requestId = createSecureRandomId()
     if (contentImportResetTimerRef.current !== null) {
       window.clearTimeout(contentImportResetTimerRef.current)
       contentImportResetTimerRef.current = null

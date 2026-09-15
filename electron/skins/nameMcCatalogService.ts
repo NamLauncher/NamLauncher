@@ -37,14 +37,14 @@ const MINECRAFT_TEXTURE_ID = /^[a-f0-9]{64}$/
 const PLAYER_UUID = /^[a-f0-9]{32}$/
 const PLAYER_NAME = /^[A-Za-z0-9_]{3,16}$/
 
-const decodeHtml = (value: string) => value
-  .replace(/&amp;/g, '&')
+export const decodeNameMcHtmlEntities = (value: string) => value
   .replace(/&quot;/g, '"')
   .replace(/&#39;|&apos;/g, "'")
   .replace(/&lt;/g, '<')
   .replace(/&gt;/g, '>')
+  .replace(/&amp;/g, '&')
 
-const stripHtml = (value: string) => decodeHtml(value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim())
+const stripHtml = (value: string) => decodeNameMcHtmlEntities(value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim())
 
 const normalizeNameMcSkinModel = (value: unknown): 'classic' | 'slim' | null => {
   const normalized = String(value || '').trim().toLowerCase()
@@ -54,7 +54,7 @@ const normalizeNameMcSkinModel = (value: unknown): 'classic' | 'slim' | null => 
 }
 
 export const parseNameMcSkinModelHtml = (html: string): 'classic' | 'slim' | null => {
-  const decoded = decodeHtml(String(html || ''))
+  const decoded = decodeNameMcHtmlEntities(String(html || ''))
   const metadataImages = Array.from(decoded.matchAll(/<meta\b[^>]*>/gi))
     .map((match) => match[0])
     .filter((tag) => /(?:property|name)=["'](?:og:image|twitter:image)["']/i.test(tag))
@@ -125,7 +125,7 @@ export const buildNameMcCatalogUrl = (request: NameMcCatalogRequest = {}) => {
 
 const getAttribute = (html: string, name: string) => {
   const match = new RegExp(`${name}=["']([^"']+)["']`, 'i').exec(html)
-  return match ? decodeHtml(match[1]) : ''
+  return match ? decodeNameMcHtmlEntities(match[1]) : ''
 }
 
 const INVALID_CARD_NAME = /^(?:true|false|null|undefined|downloads?|download|metadata|classic|default|slim|skin|namemc)$/i
@@ -204,7 +204,7 @@ export const parseNameMcCatalogHtml = (
     const title = normalizeCardPlayerName(getAttribute(attributes, 'title') || getAttribute(body, 'alt'))
     const visibleName = normalizeCardPlayerName(stripHtml(body).match(/(?:^|\s)([A-Za-z0-9_]{3,16})(?=\s|#|$)/)?.[1])
     const playerName = normalizeCardPlayerName(profileMatch?.[1]) || title || visibleName
-    const modelMatch = /(?:[?&]model=|data-model=["'])(slim|classic|default)/i.exec(decodeHtml(`${attributes} ${body}`))
+    const modelMatch = /(?:[?&]model=|data-model=["'])(slim|classic|default)/i.exec(decodeNameMcHtmlEntities(`${attributes} ${body}`))
     const model = normalizeNameMcSkinModel(modelMatch?.[1]) || 'classic'
     const cardText = stripHtml(body)
     const rankMatch = /#\s*(\d{1,6})/.exec(cardText)

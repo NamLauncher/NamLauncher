@@ -14,6 +14,7 @@ import {
 import {
   buildNameMcCatalogUrl,
   createNameMcCatalogService,
+  decodeNameMcHtmlEntities,
   normalizeNameMcCatalogResponse,
   parseNameMcCatalogHtml,
   parseNameMcSkinModelHtml
@@ -99,6 +100,10 @@ test('parses real NameMC arm models from catalog cards and detail metadata', () 
   assert.equal(parseNameMcSkinModelHtml('<meta content="https://s.namemc.com/3d/skin/body.png?id=x&amp;model=slim&amp;width=320" property="og:image">'), 'slim')
   assert.equal(parseNameMcSkinModelHtml('<meta name="twitter:image" content="https://s.namemc.com/3d/skin/body.png?id=x&amp;model=default">'), 'classic')
   assert.equal(parseNameMcSkinModelHtml('<html><body>No model metadata</body></html>'), null)
+})
+
+test('decodes each HTML entity layer only once', () => {
+  assert.equal(decodeNameMcHtmlEntities('Fish&amp;lt;Cat &quot;skin&quot;'), 'Fish&lt;Cat "skin"')
 })
 
 const createServiceDependencies = (axios, overrides = {}) => ({
