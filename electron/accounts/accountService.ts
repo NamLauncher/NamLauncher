@@ -169,8 +169,8 @@ export const createAccountService = (deps: AccountServiceDependencies) => {
     // Minecraft's OfflinePlayer UUID is the name-based UUID v3 defined by the
     // server protocol. MD5 is used only as that deterministic identifier
     // transform; it does not protect credentials, authenticity, or integrity.
-    // codeql[js/weak-cryptographic-algorithm]
-    const bytes = crypto.createHash('md5').update(`OfflinePlayer:${username}`, 'utf8').digest()
+    const bytes = crypto.createHash('md5') // codeql[js/weak-cryptographic-algorithm] - Minecraft OfflinePlayer UUID v3 protocol compatibility; not a security digest
+      .update(`OfflinePlayer:${username}`, 'utf8').digest()
     bytes[6] = (bytes[6] & 0x0f) | 0x30
     bytes[8] = (bytes[8] & 0x3f) | 0x80
     const hex = bytes.toString('hex')
