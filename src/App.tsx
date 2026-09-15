@@ -5283,24 +5283,24 @@ const App: React.FC = () => {
       <div className="app-shell nam-backdrop-grid h-screen w-screen overflow-hidden bg-[#09101f] text-slate-100 antialiased">
         {launcherErrorModal}
         {minecraftGameIssueModal}
-        <header className="titlebar flex h-12 shrink-0 items-center justify-between border-b border-slate-800 bg-[#0a1120]/90 px-5">
-          <div className="flex items-center gap-3">
+        <header className="titlebar flex h-12 min-w-0 shrink-0 items-center gap-2 border-b border-slate-800 bg-[#0a1120]/90 px-3 sm:px-5">
+          <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
             <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg border border-blue-400/30 bg-blue-500/15">
               <img src="./namlauncher-icon.png" alt="" className="h-7 w-7 object-contain outline-0" />
             </div>
-            <p className="text-sm font-black text-white">NamLauncher</p>
-            <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[11px] font-black uppercase text-emerald-200">
+            <p className="min-w-0 truncate text-sm font-black text-white">NamLauncher</p>
+            <span className="shrink-0 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[11px] font-black uppercase text-emerald-200">
               {t('brand.beta')}
             </span>
           </div>
-          <div className="no-drag flex items-center gap-1">
-            <button onClick={() => window.electron.windowControl('minimize')} aria-label={t('window.minimize')} data-tooltip={t('window.minimize')} className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition-colors duration-150 hover:bg-slate-800 hover:text-slate-100">
+          <div className="no-drag flex shrink-0 items-center gap-1" data-testid="window-controls">
+            <button onClick={() => window.electron.windowControl('minimize')} aria-label={t('window.minimize')} data-tooltip={t('window.minimize')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors duration-150 hover:bg-slate-800 hover:text-slate-100">
               <Minus size={15} />
             </button>
-            <button onClick={() => window.electron.windowControl('maximize')} aria-label={t('window.maximize')} data-tooltip={t('window.maximize')} className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition-colors duration-150 hover:bg-slate-800 hover:text-slate-100">
+            <button onClick={() => window.electron.windowControl('maximize')} aria-label={t('window.maximize')} data-tooltip={t('window.maximize')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors duration-150 hover:bg-slate-800 hover:text-slate-100">
               <Square size={13} />
             </button>
-            <button onClick={() => window.electron.windowControl('close')} aria-label={t('window.close')} data-tooltip={t('window.close')} className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition-colors duration-150 hover:bg-red-500/15 hover:text-red-300">
+            <button onClick={() => window.electron.windowControl('close')} aria-label={t('window.close')} data-tooltip={t('window.close')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors duration-150 hover:bg-red-500/15 hover:text-red-300">
               <X size={15} />
             </button>
           </div>
@@ -5686,8 +5686,8 @@ const App: React.FC = () => {
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col">
-          <header className="titlebar flex h-12 shrink-0 items-center justify-between border-b border-slate-800 bg-[#0a1120]/90 px-5">
-            <div className="flex items-center gap-3">
+          <header className="titlebar flex h-12 min-w-0 shrink-0 items-center gap-2 border-b border-slate-800 bg-[#0a1120]/90 px-3 sm:px-5">
+            <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
               <motion.div
                 animate={gameRunning && !reduceMotion
                   ? { scale: [1, 1.28, 1], opacity: [1, 0.72, 1] }
@@ -5700,11 +5700,11 @@ const App: React.FC = () => {
                  gameRunning ? 'bg-blue-300 shadow-[0_0_16px_rgba(96,165,250,0.9)]' : 'bg-slate-600'
                 )}
               />
-              <p className="max-w-[560px] truncate text-xs font-black uppercase tracking-[0.18em] text-slate-400" data-tooltip={activityDetail || statusText}>
+              <p className="min-w-0 flex-1 truncate text-xs font-black uppercase tracking-[0.18em] text-slate-400" data-tooltip={activityDetail || statusText}>
                 {statusText}
               </p>
             </div>
-            <div className="no-drag flex items-center gap-1">
+            <div className="no-drag flex shrink-0 items-center gap-1" data-testid="window-controls">
               <div
                 className="mr-2 flex h-8 items-center gap-2 rounded-md border border-blue-400/20 bg-blue-500/10 px-2.5 text-blue-100 shadow-sm shadow-blue-950/15"
                 data-tooltip={t('topbar.playersTooltip')}
@@ -5750,13 +5750,13 @@ const App: React.FC = () => {
                 <DiscordLogo className="h-[15px] w-[15px] shrink-0 text-indigo-200" />
                 <span className="hidden text-[11px] font-black xl:inline">{t('topbar.discord')}</span>
               </button>
-              <button onClick={() => window.electron.windowControl('minimize')} aria-label={t('window.minimize')} data-tooltip={t('window.minimize')} className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition-colors duration-150 hover:bg-slate-800 hover:text-slate-100">
+              <button onClick={() => window.electron.windowControl('minimize')} aria-label={t('window.minimize')} data-tooltip={t('window.minimize')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors duration-150 hover:bg-slate-800 hover:text-slate-100">
                 <Minus size={15} />
               </button>
-              <button onClick={() => window.electron.windowControl('maximize')} aria-label={t('window.maximize')} data-tooltip={t('window.maximize')} className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition-colors duration-150 hover:bg-slate-800 hover:text-slate-100">
+              <button onClick={() => window.electron.windowControl('maximize')} aria-label={t('window.maximize')} data-tooltip={t('window.maximize')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors duration-150 hover:bg-slate-800 hover:text-slate-100">
                 <Square size={13} />
               </button>
-              <button onClick={() => window.electron.windowControl('close')} aria-label={t('window.close')} data-tooltip={t('window.close')} className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition-colors duration-150 hover:bg-red-500/15 hover:text-red-300">
+              <button onClick={() => window.electron.windowControl('close')} aria-label={t('window.close')} data-tooltip={t('window.close')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors duration-150 hover:bg-red-500/15 hover:text-red-300">
                 <X size={15} />
               </button>
             </div>
