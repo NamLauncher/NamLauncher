@@ -7,9 +7,10 @@ import { runInNewContext } from 'node:vm'
 import { classifyMinecraftProcessFailure, isLocalMinecraftLaunchFailure } from '../shared/minecraftFailureClassification.ts'
 import { getMinecraftCrashDiagnosis } from '../shared/minecraftCrashDiagnosis.ts'
 
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
+const ipcSource = await readFile(new URL('../electron/ipc/registerIpcHandlers.ts', import.meta.url), 'utf8')
 const preloadSource = await readFile(new URL('../electron/preload.ts', import.meta.url), 'utf8')
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 
 const classify = (message) => classifyMinecraftProcessFailure(
   message,
@@ -27,8 +28,8 @@ const createGameErrorHarness = (gameProcessStarted = false) => {
   const issues = []
   const reports = []
   let onError
-  const start = mainSource.indexOf("  launcher.on('error', (error) => {")
-  const end = mainSource.indexOf('\n  try {', start)
+  const start = ipcSource.indexOf("    launcher.on('error', (error) => {")
+  const end = ipcSource.indexOf('\n    try {', start)
   assert.ok(start > 0 && end > start)
   const context = {
     launcher: { on: (_event, handler) => { onError = handler } },
@@ -38,7 +39,7 @@ const createGameErrorHarness = (gameProcessStarted = false) => {
     writeRunLog: () => {},
     runLogStream: null,
     runLogInstance: null,
-    mainWindow: { webContents: { send: () => {} } },
+    deps: { mainWindow: { webContents: { send: () => {} } } },
     getMinecraftCrashDiagnosis,
     classifyMinecraftProcessFailure,
     isLocalMinecraftLaunchFailure,
@@ -55,7 +56,7 @@ const createGameErrorHarness = (gameProcessStarted = false) => {
     sendMinecraftGameIssue: (issue) => issues.push(issue),
     publishLauncherError: (...report) => { reports.push(report); return Promise.resolve() }
   }
-  runInNewContext(mainSource.slice(start, end), context)
+  runInNewContext(ipcSource.slice(start, end), context)
   return { issues, reports, onError }
 }
 
@@ -232,7 +233,7 @@ test('keeps game errors local even when they also reject the launch IPC', () => 
   assert.equal(isLocalMinecraftLaunchFailure(owned, true, true), false)
 })
 
-test('shows bounded local game logs with clipboard access but no report submission action', () => {
+test('shows bounded local game logs with clipboard access but no report submission action', async () => {
   const gameDialog = appSource.slice(appSource.indexOf('const gameIssueInstance ='), appSource.indexOf('const mrpackImportProgressModal ='))
   assert.match(gameDialog, /minecraftGameIssue\?\.logs/)
   assert.match(gameDialog, /<textarea[\s\S]*id="minecraft-game-issue-logs"[\s\S]*readOnly/)
@@ -240,7 +241,8 @@ test('shows bounded local game logs with clipboard access but no report submissi
   assert.match(gameDialog, /gameIssue\.localOnly/)
   assert.doesNotMatch(gameDialog, /submitErrorReport|submitLauncherErrorReport|fetch\(/)
   assert.match(mainSource, /logs: truncateRemoteText\(error, 20000\)/)
-  assert.match(mainSource, /metadata\.failureClassification\?\.reportPolicy === 'local-only'/)
+  const runtimeSource = await readFile(new URL('../electron/mainRuntime.ts', import.meta.url), 'utf8')
+  assert.match(runtimeSource, /metadata\.failureClassification\?\.reportPolicy === 'local-only'/)
   assert.match(mainSource, /isLocalMinecraftLaunchFailure\(failure, launchLocalGameIssueSent, launchGameProcessStarted/)
   assert.match(mainSource, /buildInstanceCrashLog\(runLogInstance, launchSessionState\.startedAt\)/)
   assert.match(mainSource, /\.filter\(\(entry\) => entry\.mtimeMs >= since\)/)
@@ -271,8 +273,8 @@ test('keeps graphics, JVM, and unknown game-process failures out of launcher rep
   assert.equal(unknown.reportPolicy, 'local-only')
 })
 
-test('routes game issues separately and only publishes owned component failures', () => {
-  assert.match(mainSource, /const failure = classifyMinecraftProcessFailure\(error, diagnosis, \{/)
+test('routes game issues separately and only publishes owned component failures', async () => {
+  assert.match(mainSource, /const failure = classifyMinecraftProcessFailure\(text, diagnosis, \{/)
   assert.match(mainSource, /managedComponentActive: launchManagedComponentActive/)
   assert.match(mainSource, /if \(failure\.reportPolicy === 'automatic'\)/)
   assert.match(mainSource, /launcher\.on\('error',[\s\S]*failure\.reportPolicy === 'automatic'/)
@@ -280,8 +282,9 @@ test('routes game issues separately and only publishes owned component failures'
   assert.match(mainSource, /failure\.code === 'namlauncher-runtime-failure'[\s\S]{0,160}NamLauncher selected an incompatible Java runtime/)
   assert.match(mainSource, /publishLauncherError\(error, 'minecraft-exit'/)
   assert.match(mainSource, /sendMinecraftGameIssue\(\{/)
-  assert.match(mainSource, /const sendMinecraftGameIssue[\s\S]{0,300}showMainWindow\(\)/)
-  assert.match(mainSource, /ensureDir\(gameDirectory\)[\s\S]{0,250}provisionThaiResourcePack\(instance\)/)
+  const runtimeSource = await readFile(new URL('../electron/mainRuntime.ts', import.meta.url), 'utf8')
+  assert.match(runtimeSource, /const sendMinecraftGameIssue(?:\s*=|\s*:\s*[^=]+\s*=)[\s\S]{0,300}showMainWindow\(\)/)
+  assert.match(mainSource, /ensureDir\(gameDirectory\)[\s\S]*provisionThaiResourcePack\(instance\)/)
   assert.match(mainSource, /Refused to publish a local-only Minecraft process failure/)
   assert.match(preloadSource, /onMinecraftGameIssue:/)
   assert.match(preloadSource, /ipcRenderer\.on\('minecraft-game-issue'/)

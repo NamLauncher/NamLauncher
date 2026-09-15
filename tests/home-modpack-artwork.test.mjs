@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises'
 
 import { resolveHomeModpackArtwork } from '../src/homeModpackArtwork.ts'
 
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 
 test('prefers the official featured Modrinth gallery image over the icon', () => {
   assert.deepEqual(resolveHomeModpackArtwork({
@@ -43,7 +43,7 @@ test('rejects untrusted artwork URLs instead of loading arbitrary remote images'
 })
 
 test('Home cards use a banner ratio, cover gallery art, and contain icon fallbacks', () => {
-  const homeCards = appSource.match(/\{homeModpacks\.map\(\(modpack\) => \{[\s\S]*?\n\s*\}\)\}/)?.[0] || ''
+  const homeCards = appSource.match(/\{homeModpacks\.map\(\(modpack(?:: any)?\) => \{[\s\S]*?\n\s*\}\)\}/)?.[0] || ''
   assert.match(homeCards, /resolveHomeModpackArtwork\(modpack\)/)
   assert.match(homeCards, /aspect-\[2\/1\]/)
   assert.match(homeCards, /src=\{artwork\.bannerUrl\}[\s\S]*object-cover/)

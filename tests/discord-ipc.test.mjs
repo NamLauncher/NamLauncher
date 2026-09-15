@@ -2,10 +2,10 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
-import { getDiscordLargeImageText, getPlayerHeadUrl } from '../electron/discord.ts'
+import { DEFAULT_MINECRAFT_SKIN_HEAD, getDiscordLargeImageText, getPlayerHeadUrl } from '../electron/discord.ts'
 
 const discordSource = await readFile(new URL('../electron/discord.ts', import.meta.url), 'utf8')
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
 const textureVerifierSource = await readFile(new URL('../electron/minecraft/discordTexture.ts', import.meta.url), 'utf8')
 const javaManagerSource = await readFile(new URL('../electron/javaManager.ts', import.meta.url), 'utf8')
 const discordTransportSource = await readFile(new URL('../node_modules/discord-rpc/src/transports/ipc.js', import.meta.url), 'utf8')
@@ -97,6 +97,31 @@ test('resolves exact, explicit-null, invalid, and omitted texture arguments by b
     getPlayerHeadUrl('', 'Legacy_Name'),
     'https://mc-heads.net/head/Legacy_Name/64.png'
   )
+})
+
+test('renders offline default skins with a stable Minecraft head and player name', () => {
+  assert.equal(DEFAULT_MINECRAFT_SKIN_HEAD, 'default:steve')
+  assert.equal(
+    getPlayerHeadUrl('', 'OfflinePlayer', DEFAULT_MINECRAFT_SKIN_HEAD),
+    'https://mc-heads.net/head/06628f9cef88520da742ab280a01677ce17c99717f964ed89ed791673121094c/64.png'
+  )
+  assert.equal(
+    getPlayerHeadUrl('', 'OfflinePlayer', 'default:alex'),
+    'https://mc-heads.net/head/99391ed9dff9581ec88daf23b9b028adc9ac91f52889edcff1c982d0923c0cff/64.png'
+  )
+
+  const presenceResolver = discordSource.slice(
+    discordSource.indexOf('const getPlayerHeadPresence'),
+    discordSource.indexOf('type PresenceInput')
+  )
+  const launchResolver = mainSource.slice(
+    mainSource.indexOf('const getDiscordPlayerTextureIdForLaunch'),
+    mainSource.indexOf('const ensureAuthlibInjector')
+  )
+  assert.match(presenceResolver, /smallImageText: playerName/)
+  assert.match(launchResolver, /if \(!accountStore\) \{[\s\S]*account\.type === 'offline' \? DEFAULT_MINECRAFT_SKIN_HEAD : null/)
+  assert.match(launchResolver, /return `default:\$\{getDefaultSkinPreset\(accountStore\.activeDefaultSkinId\)\.id\}`/)
+  assert.match(launchResolver, /return verifyMinecraftTextureFile\([\s\S]*activePreset\.sourceTextureId[\s\S]*\) \|\| DEFAULT_MINECRAFT_SKIN_HEAD/)
 })
 
 test('carries the exact active texture id from the skin cache through the launch flow', () => {

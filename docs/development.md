@@ -1,7 +1,8 @@
 # Development Workflow
 
-`main` contains the latest stable source and currently remains at `1.2.3`.
-`develop` contains the local-only `1.2.4-beta3` integration build.
+`main` contains the latest published stable source.
+`develop` contains the next release integration source. The `codex/release-1.2.4`
+branch qualifies version `1.2.4` without publishing it.
 
 1. Create focused branches from `develop`.
 2. Install dependencies with `npm ci`.
@@ -13,5 +14,23 @@
 Release publication, production deployment, Discord announcements, and updates
 to website download metadata are separate guarded operations. A source push by
 itself does not authorize any of them.
+
+## Desktop release automation
+
+1. Promote an audited stable source commit to `main` and ensure the version and
+   root `CHANGELOG.md` entry agree.
+2. Run `Build and publish stable desktop release` with `publish` disabled to
+   verify native Windows, Linux, and macOS packaging from the same commit.
+3. Create the exact stable tag `vX.Y.Z` at that verified commit.
+4. Run the workflow again from that tag with `publish` enabled. Keep
+   `sign_windows` disabled for the intentionally unsigned `1.2.4` release.
+5. For `1.2.5` and later, enable `sign_windows`, approve Windows signing in the
+   `stable-signing` environment and SignPath, then approve GitHub publication
+   in `stable-production`.
+6. Allow the private Platform workflow to verify and atomically promote the
+   immutable GitHub Release files. Never upload a locally built replacement.
+
+Stable release assets are immutable. A corrected build uses a new patch version
+instead of replacing a file under an existing tag.
 
 Author/creator: [nattapat2871](https://nattapat2871.me)

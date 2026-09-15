@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
 const preloadSource = await readFile(new URL('../electron/preload.ts', import.meta.url), 'utf8')
 const appTextSource = await readFile(new URL('../src/appText.ts', import.meta.url), 'utf8')
 

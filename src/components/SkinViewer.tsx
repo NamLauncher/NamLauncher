@@ -1,3 +1,4 @@
+// Author/creator: nattapat2871 (https://nattapat2871.me)
 import { useEffect, useRef } from 'react'
 
 type SkinView3DInstance = import('skinview3d').SkinViewer
@@ -65,8 +66,8 @@ const SkinViewer = ({
       }
       viewer.autoRotateSpeed = 0.7
       viewer.autoRotate = initialProps.autoRotate
-      viewer.cameraLight.intensity = 0.9
-      viewer.globalLight.intensity = 2.1
+      viewer.cameraLight.intensity = 1.25
+      viewer.globalLight.intensity = 2.65
       viewer.nameTag = null
       viewerRef.current = viewer
 

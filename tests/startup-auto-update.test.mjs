@@ -109,7 +109,7 @@ test('Windows automatic installer handoff rejects stale status and requires exac
   }
 })
 
-test('Windows automatic update preserves the registered Current User or All Users scope', () => {
+test('Windows registry inspection still identifies Current User and legacy All Users installs', () => {
   const launcher = String.raw`D:\Minecraft\NamLauncher\Launcher\NamLauncher.exe`
   assert.equal(resolveWindowsInstallScopeFromRecords(launcher, [{
     hive: 'HKLM',
@@ -166,14 +166,15 @@ test('AppImage replacement verifies the staged file and retains the previous exe
 })
 
 test('keeps the old manual updater and enforces required updates at the main-process launch boundary', async () => {
-  const main = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
-  const app = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+  const main = await (await import('./sourceText.mjs')).readElectronMainSource()
+  const app = await (await import('./sourceText.mjs')).readRendererAppSource()
   const platform = await readFile(new URL('../electron/updates/platformAutoUpdate.ts', import.meta.url), 'utf8')
   const windowsHelper = await readFile(new URL('../packaging/update-windows.ps1', import.meta.url), 'utf8')
   const windowsInstaller = await readFile(new URL('../build/installer.nsh', import.meta.url), 'utf8')
+  const windowsHandoff = await readFile(new URL('../electron/updates/windowsAutoInstaller.ts', import.meta.url), 'utf8')
   assert.match(main, /trustedIpcHandle\('install-launcher-update'/)
   assert.match(main, /trustedIpcHandle\('run-startup-launcher-update'/)
-  assert.match(main, /trustedIpcHandle\('launch-minecraft',[\s\S]{0,250}startupUpdatePending \|\| requiredLauncherUpdateVersion/)
+  assert.match(main, /trustedIpcHandle\('launch-minecraft',[\s\S]{0,250}deps\.startupUpdatePending \|\| deps\.requiredLauncherUpdateVersion/)
   assert.match(main, /mandatory: updateAvailable/)
   assert.doesNotMatch(main, /requireElevation:\s*true/)
   assert.match(app, /window\.electron\.runStartupLauncherUpdate\(\)/)
@@ -182,26 +183,36 @@ test('keeps the old manual updater and enforces required updates at the main-pro
   assert.match(platform, /updater\.autoInstallOnAppQuit = false/)
   assert.match(platform, /updater\.allowDowngrade = false/)
   assert.match(windowsHelper, /\/S --updated --force-run/)
-  assert.match(windowsHelper, /\/allusers/)
   assert.match(windowsHelper, /\/currentuser/)
-  assert.match(windowsHelper, /ValidateSet\('all-users', 'current-user'\)/)
+  assert.doesNotMatch(windowsHelper, /\/allusers/)
+  assert.doesNotMatch(windowsHelper, /ValidateSet\('all-users', 'current-user'\)/)
+  assert.doesNotMatch(windowsHelper, /\/D=/)
   assert.doesNotMatch(windowsHelper, /Verb\s*=\s*['"]RunAs['"]/)
   assert.doesNotMatch(windowsHelper, /RequireElevation/)
-  assert.match(windowsInstaller, /--choose-install-mode/)
-  assert.match(windowsInstaller, /StrCpy \$installMode ""/)
+  assert.doesNotMatch(windowsHandoff, /installScope/)
+  assert.match(windowsInstaller, /!insertmacro setInstallModePerUser/)
+  assert.match(windowsInstaller, /StrCpy \$isForceCurrentInstall "1"/)
+  assert.match(windowsInstaller, /StrCpy \$INSTDIR "\$LOCALAPPDATA\\Programs\\NamLauncher\\Launcher"/)
+  assert.doesNotMatch(windowsInstaller, /--choose-install-mode/)
   assert.doesNotMatch(windowsInstaller, /NamLauncherAutomaticCurrentUserUpdate/)
   assert.doesNotMatch(windowsInstaller, /DeleteRegKey HKLM "\$\{INSTALL_REGISTRY_KEY\}"/)
   assert.doesNotMatch(windowsInstaller, /DeleteRegKey HKLM "\$\{UNINSTALL_REGISTRY_KEY\}"/)
 })
 
 test('startup update uses a compact accessible progress card without a confirmation prompt', async () => {
-  const app = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+  const app = await (await import('./sourceText.mjs')).readRendererAppSource()
+  const platform = await readFile(new URL('../electron/updates/platformAutoUpdate.ts', import.meta.url), 'utf8')
   assert.match(app, /data-testid="startup-update-card"/)
   assert.match(app, /role="progressbar"/)
   assert.match(app, /aria-valuenow=\{launcherUpdatePercent\}/)
   assert.match(app, /aria-live="polite"/)
   assert.match(app, /max-w-\[440px\]/)
-  assert.doesNotMatch(app, /startupAutoUpdating[\s\S]{0,300}(confirm\(|showConfirm|Yes|No)/)
+  const startupCard = app.slice(
+    app.indexOf('data-testid="startup-update-card"') - 200,
+    app.indexOf('data-testid="startup-update-card"') + 3_500
+  )
+  assert.doesNotMatch(startupCard, /confirm\(|showConfirm|Yes|No/)
+  assert.match(platform, /updater\.allowPrerelease = options\.version\.includes\('-'\)/)
 })
 
 test('macOS signed auto-update packaging is opt-in and cannot silently produce an unsigned updater', () => {

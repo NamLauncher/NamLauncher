@@ -13,6 +13,34 @@ type LauncherErrorBoundaryState = {
   copied: boolean
 }
 
+const DYNAMIC_IMPORT_RECOVERY_KEY = 'namlauncher:dynamic-import-recovery-at'
+const DYNAMIC_IMPORT_RECOVERY_WINDOW_MS = 60_000
+const DYNAMIC_IMPORT_ERROR_PATTERN = /(?:failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed|chunkloaderror|loading chunk \d+ failed)/i
+
+const isDynamicImportLoadError = (error: Error) => DYNAMIC_IMPORT_ERROR_PATTERN.test([
+  error.name,
+  error.message,
+  error.stack || ''
+].join('\n'))
+
+const reloadOnceForStaleDynamicImport = (error: Error) => {
+  if (!isDynamicImportLoadError(error)) return false
+
+  try {
+    const now = Date.now()
+    const previousAttempt = Number(window.sessionStorage.getItem(DYNAMIC_IMPORT_RECOVERY_KEY) || '0')
+    if (Number.isFinite(previousAttempt) && now - previousAttempt < DYNAMIC_IMPORT_RECOVERY_WINDOW_MS) {
+      return false
+    }
+
+    window.sessionStorage.setItem(DYNAMIC_IMPORT_RECOVERY_KEY, String(now))
+    window.location.reload()
+    return true
+  } catch {
+    return false
+  }
+}
+
 const getDiagnosticReport = (error: Error, errorInfo: React.ErrorInfo | null) => [
   'NamLauncher renderer crash report',
   `Time: ${new Date().toISOString()}`,
@@ -37,6 +65,7 @@ class LauncherErrorBoundary extends React.Component<LauncherErrorBoundaryProps, 
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    if (reloadOnceForStaleDynamicImport(error)) return
     this.setState({ error, errorInfo, copied: false })
   }
 

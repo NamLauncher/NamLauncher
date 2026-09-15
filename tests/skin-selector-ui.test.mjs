@@ -1,3 +1,5 @@
+// Author/creator: nattapat2871 (https://nattapat2871.me)
+
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import test from 'node:test'
@@ -5,8 +7,8 @@ import test from 'node:test'
 const skinPage = fs.readFileSync(new URL('../src/components/SkinPage.tsx', import.meta.url), 'utf8')
 const skinViewer = fs.readFileSync(new URL('../src/components/SkinViewer.tsx', import.meta.url), 'utf8')
 const staticSkinPreview = fs.readFileSync(new URL('../src/components/StaticSkinPreview.tsx', import.meta.url), 'utf8')
-const app = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
-const main = fs.readFileSync(new URL('../electron/main.ts', import.meta.url), 'utf8')
+const app = (await import('./sourceText.mjs')).readRendererAppSourceSync()
+const main = await (await import('./sourceText.mjs')).readElectronMainSource()
 const preload = fs.readFileSync(new URL('../electron/preload.ts', import.meta.url), 'utf8')
 
 test('skin selector uses expandable PNG cards and background selection', () => {
@@ -63,6 +65,13 @@ test('skin viewer supports non-interactive cropped previews', () => {
   assert.match(skinViewer, /viewerRef\.current\.zoom = zoom/)
 })
 
+test('skin previews use brighter balanced lighting for dark skins', () => {
+  assert.match(skinViewer, /viewer\.cameraLight\.intensity = 1\.25/)
+  assert.match(skinViewer, /viewer\.globalLight\.intensity = 2\.65/)
+  assert.match(staticSkinPreview, /viewer\.cameraLight\.intensity = 1\.3/)
+  assert.match(staticSkinPreview, /viewer\.globalLight\.intensity = 2\.7/)
+})
+
 test('skin cards render one-time PNG previews instead of keeping live WebGL viewers', () => {
   assert.match(staticSkinPreview, /await import\('skinview3d'\)/)
   assert.match(staticSkinPreview, /canvas\.toDataURL\('image\/png'\)/)
@@ -74,8 +83,8 @@ test('skin cards render one-time PNG previews instead of keeping live WebGL view
 
 test('preloads the skin workspace when the user approaches its navigation button', () => {
   assert.match(app, /import React, \{ Suspense, lazy,/)
-  assert.match(app, /const loadSkinPageModule = \(\) => import\('\.\/components\/SkinPage'\)/)
-  assert.match(app, /const SkinPage = lazy\(loadSkinPageModule\)/)
+  assert.match(app, /(?:export )?const loadSkinPageModule = \(\) => import\('\.{1,2}\/components\/SkinPage'\)/)
+  assert.match(app, /(?:export )?const SkinPage = lazy\(loadSkinPageModule\)/)
   assert.match(app, /onPointerEnter={[\s\S]*item\.id === 'skins'[\s\S]*loadSkinPageModule\(\)/)
   assert.match(app, /<Suspense fallback=/)
   assert.match(app, /<Loader2 size=\{17\} className="animate-spin text-blue-300" \/>/)

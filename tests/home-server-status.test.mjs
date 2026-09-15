@@ -11,8 +11,8 @@ import {
 } from '../electron/minecraft/serverPingSelection.ts'
 import { sanitizeMinecraftPngDataUrl } from '../electron/minecraft/pngDataUrl.ts'
 
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
 const preloadSource = await readFile(new URL('../electron/preload.ts', import.meta.url), 'utf8')
 const motdSource = await readFile(new URL('../src/components/MinecraftServerMotd.tsx', import.meta.url), 'utf8')
 
@@ -80,7 +80,7 @@ test('Home status refresh is lazy, grouped, cached, stale-safe, and has no polli
   assert.match(appSource, /pingInstanceServers\(group\.instance, addresses\)/)
   assert.match(appSource, /requestId === homeServerStatusRequestIdRef\.current/)
   assert.match(appSource, /homeServerPingInFlightRef/)
-  assert.match(appSource, /setHomeServerStatusRefresh\(\(value\) => value \+ 1\)/)
+  assert.match(appSource, /setHomeServerStatusRefresh\(\(value(?:: number)?\) => value \+ 1\)/)
   assert.doesNotMatch(appSource, /setInterval\([\s\S]{0,400}pingInstanceServers/)
 })
 

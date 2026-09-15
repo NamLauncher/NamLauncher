@@ -1,10 +1,12 @@
+// Author/creator: nattapat2871 (https://nattapat2871.me)
+
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
 const preloadSource = await readFile(new URL('../electron/preload.ts', import.meta.url), 'utf8')
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 const stopMinecraftSource = mainSource.slice(
   mainSource.indexOf("trustedIpcHandle('stop-minecraft'"),
   mainSource.indexOf("trustedIpcHandle('launch-minecraft'")

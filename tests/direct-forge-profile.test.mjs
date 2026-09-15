@@ -13,7 +13,7 @@ import { EventEmitter } from 'node:events'
 import { shouldInstallForgeProfileDirectly } from '../electron/minecraft/forgeProfile.ts'
 import { getMinecraftCrashDiagnosis } from '../shared/minecraftCrashDiagnosis.ts'
 
-const source = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
+const source = await (await import('./sourceText.mjs')).readElectronMainSource()
 const modern = (mainClass = 'net.minecraftforge.bootstrap.ForgeBootstrap') => ({
   id: '1.21.1-forge-52.1.16', inheritsFrom: '1.21.1', mainClass,
   libraries: [], arguments: { jvm: ['-Djava.net.preferIPv6Addresses=system'] }

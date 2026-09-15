@@ -16,7 +16,7 @@ const normalizeWindowsDirectory = (value: string) => {
   return normalized.replace(/[\\/]+$/, '').toLocaleLowerCase('en-US')
 }
 
-const executableFromCommand = (value: string) => {
+export const executableFromWindowsCommand = (value: string) => {
   const trimmed = value.trim()
   const quoted = /^"([^"]+\.exe)"/i.exec(trimmed)
   if (quoted) return quoted[1]
@@ -26,10 +26,11 @@ const executableFromCommand = (value: string) => {
 
 const pathFromDisplayIcon = (value: string) => value.trim().replace(/^"|"$/g, '').replace(/,\s*-?\d+$/, '')
 
-const recordMatchesLauncherDirectory = (launcherDirectory: string, record: WindowsUninstallRecord) => {
+export const recordMatchesWindowsLauncherDirectory = (launcherDirectoryPath: string, record: WindowsUninstallRecord) => {
+  const launcherDirectory = normalizeWindowsDirectory(launcherDirectoryPath)
   const candidates = [
     record.installLocation || '',
-    path.win32.dirname(executableFromCommand(record.uninstallString || '')),
+    path.win32.dirname(executableFromWindowsCommand(record.uninstallString || '')),
     path.win32.dirname(pathFromDisplayIcon(record.displayIcon || ''))
   ].filter((candidate) => candidate && candidate !== '.')
   return candidates.some((candidate) => normalizeWindowsDirectory(candidate) === launcherDirectory)
@@ -45,7 +46,7 @@ export const resolveWindowsInstallScopeFromRecords = (
   const launcherDirectory = normalizeWindowsDirectory(path.win32.dirname(launcherPath))
   const scopes = new Set<WindowsInstallScope>()
   for (const record of records) {
-    if (!recordMatchesLauncherDirectory(launcherDirectory, record)) continue
+    if (!recordMatchesWindowsLauncherDirectory(launcherDirectory, record)) continue
     scopes.add(record.hive === 'HKLM' ? 'all-users' : 'current-user')
   }
   if (scopes.size !== 1) {
@@ -56,7 +57,7 @@ export const resolveWindowsInstallScopeFromRecords = (
   return [...scopes][0]
 }
 
-const parseRegistryRecords = (value: string): WindowsUninstallRecord[] => {
+export const parseWindowsUninstallRecords = (value: string): WindowsUninstallRecord[] => {
   const parsed: unknown = JSON.parse(value)
   const entries = Array.isArray(parsed) ? parsed : [parsed]
   return entries.flatMap((entry): WindowsUninstallRecord[] => {
@@ -72,7 +73,7 @@ const parseRegistryRecords = (value: string): WindowsUninstallRecord[] => {
   })
 }
 
-export const resolveWindowsInstallScope = (launcherPath: string): WindowsInstallScope => {
+export const readWindowsUninstallRecords = (): WindowsUninstallRecord[] => {
   if (process.platform !== 'win32') throw new Error('Windows installation scope can only be read on Windows.')
   const powershellPath = path.join(
     process.env.SystemRoot || 'C:\\Windows',
@@ -96,5 +97,9 @@ export const resolveWindowsInstallScope = (launcherPath: string): WindowsInstall
   const output = execFileSync(powershellPath, [
     '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded
   ], { encoding: 'utf8', windowsHide: true, maxBuffer: 256 * 1024 }).trim()
-  return resolveWindowsInstallScopeFromRecords(launcherPath, output ? parseRegistryRecords(output) : [])
+  return output ? parseWindowsUninstallRecords(output) : []
+}
+
+export const resolveWindowsInstallScope = (launcherPath: string): WindowsInstallScope => {
+  return resolveWindowsInstallScopeFromRecords(launcherPath, readWindowsUninstallRecords())
 }

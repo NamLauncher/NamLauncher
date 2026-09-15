@@ -134,6 +134,9 @@ contextBridge.exposeInMainWorld('electron', {
   saveDefaultSkinPreset: (request: any) => invoke('save-default-skin-preset', request),
   importSkinByName: (request: any) => invoke('import-skin-by-name', request),
   importOfflineSkinByName: (request: any) => invoke('import-offline-skin-by-name', request),
+  searchNameMcSkins: (request: any) => invoke('search-namemc-skins', request),
+  resolveNameMcSkin: (request: any) => invoke('resolve-namemc-skin', request),
+  applyNameMcSkin: (request: any) => invoke('apply-namemc-skin', request),
   activateSkinPreset: (request: any) => invoke('activate-skin-preset', request),
   deleteSkinPreset: (request: any) => invoke('delete-skin-preset', request),
   resetActiveSkin: (request: any) => invoke('reset-active-skin', request),
@@ -215,6 +218,11 @@ contextBridge.exposeInMainWorld('electron', {
     const listener = (_event: Electron.IpcRendererEvent, report: any) => callback(report)
     ipcRenderer.on('launcher-error-report', listener)
     return () => ipcRenderer.removeListener('launcher-error-report', listener)
+  },
+  onInstanceContentImportProgress: (callback: any) => {
+    const listener = (_event: Electron.IpcRendererEvent, progress: any) => callback(progress)
+    ipcRenderer.on('instance-content-import-progress', listener)
+    return () => ipcRenderer.removeListener('instance-content-import-progress', listener)
   },
   onMinecraftGameIssue: (callback: any) => {
     const listener = (_event: Electron.IpcRendererEvent, issue: any) => callback(issue)

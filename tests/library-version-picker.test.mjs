@@ -3,9 +3,9 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 const appTextSource = await readFile(new URL('../src/appText.ts', import.meta.url), 'utf8')
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
 const preloadSource = await readFile(new URL('../electron/preload.ts', import.meta.url), 'utf8')
 const loaderIconSource = await readFile(new URL('../src/components/LoaderIcon.tsx', import.meta.url), 'utf8')
 const loaderArtworkNotice = await readFile(new URL('../src/assets/loader-icons/NOTICE.md', import.meta.url), 'utf8')
@@ -27,6 +27,15 @@ test('project detail dialog lists compatible versions and installs the selected 
   assert.match(appSource, /fileId: selectedVersionId \|\| undefined/)
   assert.match(appSource, /event\.key === 'Escape'[\s\S]*closeLibraryProjectDetails/)
   assert.match(appSource, /const trigger = libraryProjectTriggerRef\.current[\s\S]*trigger\?\.focus/)
+})
+
+test('vanilla instances do not open the mod version picker', () => {
+  assert.match(
+    appSource,
+    /if \(projectType === 'mod' && currentTarget\.loader === 'vanilla'\) \{[\s\S]*setStatusText\(t\('library\.install\.needLoader'\)\)[\s\S]*return false/
+  )
+  assert.match(appSource, /const projectDetailsDisabled = libraryType === 'mod' && currentTarget\?\.loader === 'vanilla'/)
+  assert.match(appSource, /disabled=\{projectDetailsDisabled\}[\s\S]*data-tooltip=\{projectDetailsDisabled \? t\('library\.install\.needLoader'\)/)
 })
 
 test('provider version endpoints are exposed and exact files are selected only from the compatible set', () => {

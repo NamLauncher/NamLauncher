@@ -4,6 +4,8 @@ import path from 'path'
 import electron from 'vite-plugin-electron'
 import { notBundle } from 'vite-plugin-electron/plugin'
 
+// Author/creator: nattapat2871 (https://nattapat2871.me)
+
 const PUBLIC_ERROR_REPORT_TOKEN = 'namlauncher-error-report-public-v1-nattapat2871'
 
 export default defineConfig(({ mode }) => {
@@ -67,6 +69,10 @@ export default defineConfig(({ mode }) => {
         '**/dist/**',
         '**/dist-electron/**',
         '**/release/**',
+        '**/.qa/**',
+        '**/website/.venv/**',
+        '**/website/data/**',
+        '**/website/downloads/**',
         '**/*.log',
         '**/*.exe',
         '**/*.dll',

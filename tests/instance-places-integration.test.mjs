@@ -3,8 +3,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 const preloadSource = await readFile(new URL('../electron/preload.ts', import.meta.url), 'utf8')
 const pingSelectionSource = await readFile(new URL('../electron/minecraft/serverPingSelection.ts', import.meta.url), 'utf8')
 
@@ -15,7 +15,7 @@ test('provisions partner servers through every instance creation path', () => {
   assert.match(appSource, /await window\.electron\.provisionInstance\(instance\)[\s\S]*setInstances\(\(prev\) => \[\.\.\.prev, instance\]\)/)
   assert.match(mainSource, /PARTNER_SERVERS_MARKER/)
   assert.match(mainSource, /const instanceHasAllPartnerServers = async/)
-  assert.match(mainSource, /PARTNER_SERVERS\.every\(\(partner\) =>/)
+  assert.match(mainSource, /PARTNER_SERVERS\.every\(\(partner(?:: any)?\) =>/)
   assert.match(mainSource, /marker\.revision === PARTNER_SERVER_REVISION && await instanceHasAllPartnerServers\(serversPath\)/)
   assert.match(mainSource, /mergePartnerServersDat\(serversPath\)/)
 })
@@ -30,7 +30,7 @@ test('exposes bounded instance places operations and validates quick play target
     assert.match(mainSource, new RegExp(`trustedIpcHandle\\('${channel}'`))
     assert.match(preloadSource, new RegExp(`invoke\\('${channel}'`))
   }
-  assert.match(mainSource, /mapWithConcurrency\(targets, 8/)
+  assert.match(mainSource, /mapWithConcurrency(?:<[^>]+>)?\(targets, 8/)
   assert.match(pingSelectionSource, /MAX_INSTANCE_SERVER_PINGS = 60/)
   assert.match(pingSelectionSource, /MAX_FILTERED_INSTANCE_SERVER_PINGS = 4/)
   assert.match(mainSource, /selectMinecraftServerPingTargets\(await readInstanceServers\(instance\), request\.addresses\)/)
@@ -42,8 +42,8 @@ test('exposes bounded instance places operations and validates quick play target
   assert.match(mainSource, /Stop Minecraft before changing servers in this instance/)
   assert.doesNotMatch(mainSource, /const getInstancePlaces = async[\s\S]*?await provisionPartnerServers\(instance\)[\s\S]*?const mapWithConcurrency/)
   assert.match(mainSource, /validateQuickPlayRequest\(request, instance\)/)
-  assert.match(mainSource, /servers\.some\(\(server\) => server\.canonicalKey === endpoint\.canonicalKey\)/)
-  assert.match(mainSource, /worlds\.worlds\.some\(\(world\) => world\.folderName === folderName\)/)
+  assert.match(mainSource, /servers\.some\(\(server(?:: any)?\) => server\.canonicalKey === endpoint\.canonicalKey\)/)
+  assert.match(mainSource, /worlds\.worlds\.some\(\(world(?:: any)?\) => world\.folderName === folderName\)/)
   assert.match(mainSource, /\.\.\.\(quickPlayOption \? \{ quickPlay: quickPlayOption \} : \{\}\)/)
 })
 

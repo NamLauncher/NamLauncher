@@ -1,0 +1,344 @@
+# Author/creator: nattapat2871 (https://nattapat2871.me)
+name: Build and publish stable desktop release
+run-name: NamLauncher ${{ inputs.version }} from ${{ inputs.source_ref }} (publish=${{ inputs.publish }}, sign-windows=${{ inputs.sign_windows }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Branch, tag, or full commit to build
+        required: true
+        type: string
+        default: main
+      version:
+        description: Stable x.y.z version that must match package.json
+        required: true
+        type: string
+        default: 1.2.3
+      publish:
+        description: Publish a stable GitHub Release after approval
+        required: true
+        type: boolean
+        default: false
+      sign_windows:
+        description: Request SignPath for Windows before publishing (leave off for unsigned 1.2.4)
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: desktop-release-${{ inputs.version }}-${{ inputs.publish && 'publish' || 'dry-run' }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Verify immutable source
+    runs-on: ubuntu-latest
+    outputs:
+      commit_sha: ${{ steps.release.outputs.commit_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1f # v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Validate stable version and source
+        id: release
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          SOURCE_REF: ${{ inputs.source_ref }}
+          PUBLISH_RELEASE: ${{ inputs.publish }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          package_version="$(node -p "require('./package.json').version")"
+          [[ "$package_version" == "$RELEASE_VERSION" ]]
+          commit_sha="$(git rev-parse --verify HEAD)"
+          node scripts/assert-release-metadata.mjs
+          if [[ "$PUBLISH_RELEASE" == "true" ]]; then
+            expected_tag="v$RELEASE_VERSION"
+            [[ "$SOURCE_REF" == "$expected_tag" ]]
+            tag_commit="$(git rev-list -n 1 "$expected_tag")"
+            [[ "$tag_commit" == "$commit_sha" ]]
+            if gh release view "$expected_tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              echo "Release $expected_tag already exists; release artifacts are immutable." >&2
+              exit 1
+            fi
+          fi
+          printf 'commit_sha=%s\n' "$commit_sha" >> "$GITHUB_OUTPUT"
+
+  windows:
+    name: Build Windows x64
+    needs: preflight
+    runs-on: windows-latest
+    outputs:
+      signing_artifact_id: ${{ steps.signing-input.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1f # v7.0.1
+        with:
+          ref: ${{ needs.preflight.outputs.commit_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run dist:win
+      - name: Upload prepared Windows release
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-windows-prepared-${{ inputs.version }}
+          path: |
+            release/NamLauncher-${{ inputs.version }}-Installer.exe
+            release/NamLauncher-${{ inputs.version }}-Installer.exe.sha256
+            release/NamLauncher-${{ inputs.version }}-Windows-SHA256SUMS.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+      - name: Upload isolated SignPath input
+        if: ${{ inputs.publish && inputs.sign_windows }}
+        id: signing-input
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: signpath-input-${{ inputs.version }}
+          path: release/NamLauncher-${{ inputs.version }}-Installer.exe
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  linux:
+    name: Build Linux x64
+    needs: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1f # v7.0.1
+        with:
+          ref: ${{ needs.preflight.outputs.commit_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install Linux packaging tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes flatpak flatpak-builder libarchive-tools rpm
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user --noninteractive flathub \
+            org.freedesktop.Platform//24.08 \
+            org.freedesktop.Sdk//24.08 \
+            org.electronjs.Electron2.BaseApp//24.08
+      - run: npm ci
+      - run: npm test
+      - run: npm run dist:linux
+      - name: Upload prepared Linux release
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-linux-prepared-${{ inputs.version }}
+          path: |
+            release/NamLauncher-${{ inputs.version }}-Linux-x64.*
+            release/NamLauncher-${{ inputs.version }}-Linux-x64.pkg.tar.zst
+            release/NamLauncher-${{ inputs.version }}-Linux-x64.pkg.tar.zst.sha256
+            release/NamLauncher-${{ inputs.version }}-Linux-SHA256SUMS.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  macos:
+    name: Build unsigned macOS universal
+    needs: preflight
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1f # v7.0.1
+        with:
+          ref: ${{ needs.preflight.outputs.commit_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run dist:mac
+      - name: Verify both macOS architectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="$(find release -type d -name 'NamLauncher.app' -print -quit)"
+          [[ -n "$app_path" ]]
+          architectures="$(lipo -archs "$app_path/Contents/MacOS/NamLauncher")"
+          [[ " $architectures " == *" arm64 "* ]]
+          [[ " $architectures " == *" x86_64 "* ]]
+      - name: Upload prepared macOS release
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-macos-prepared-${{ inputs.version }}
+          path: |
+            release/NamLauncher-${{ inputs.version }}-macOS-universal.dmg
+            release/NamLauncher-${{ inputs.version }}-macOS-universal.dmg.sha256
+            release/NamLauncher-${{ inputs.version }}-macOS-SHA256SUMS.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  verify-prepared:
+    name: Verify complete three-platform bundle
+    needs: [preflight, windows, linux, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1f # v7.0.1
+        with:
+          ref: ${{ needs.preflight.outputs.commit_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: release-*-prepared-${{ inputs.version }}
+          path: bundle
+          merge-multiple: true
+      - name: Verify prepared files, checksums, and manifests
+        run: >-
+          node scripts/verify-ci-release-bundle.mjs
+          --directory bundle
+          --version "${{ inputs.version }}"
+          --source-commit "${{ needs.preflight.outputs.commit_sha }}"
+          --windows-signature unsigned
+      - name: Upload complete dry-run bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: NamLauncher-${{ inputs.version }}-all-platforms-dry-run
+          path: bundle/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  sign-windows:
+    name: Sign and verify Windows release
+    if: ${{ inputs.publish && inputs.sign_windows }}
+    needs: [preflight, windows, verify-prepared]
+    runs-on: windows-latest
+    environment: stable-signing
+    steps:
+      - name: Submit manually approved SignPath request
+        uses: SignPath/github-action-submit-signing-request@c92b958760219087e01f8d67a1669ed57afe2627 # v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ needs.windows.outputs.signing_artifact_id }}
+          wait-for-completion-timeout-in-seconds: "1800"
+          output-artifact-directory: signed-output
+      - name: Verify Authenticode and rebuild immutable checksums
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          SIGNPATH_EXPECTED_SUBJECT: ${{ vars.SIGNPATH_EXPECTED_SUBJECT }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:SIGNPATH_EXPECTED_SUBJECT)) {
+            throw 'SIGNPATH_EXPECTED_SUBJECT repository variable is required.'
+          }
+          $expectedName = "NamLauncher-$($env:RELEASE_VERSION)-Installer.exe"
+          $installer = Get-ChildItem -LiteralPath signed-output -Recurse -File |
+            Where-Object Name -EQ $expectedName
+          if (@($installer).Count -ne 1) {
+            throw "Expected exactly one signed $expectedName artifact."
+          }
+          $signature = Get-AuthenticodeSignature -LiteralPath $installer.FullName
+          if ($signature.Status -ne 'Valid' -or
+              $signature.SignerCertificate.Subject -notlike "*$($env:SIGNPATH_EXPECTED_SUBJECT)*") {
+            throw "Authenticode verification failed: $($signature.Status) / $($signature.SignerCertificate.Subject)"
+          }
+          New-Item -ItemType Directory -Path signed-release | Out-Null
+          $destination = Join-Path signed-release $expectedName
+          Copy-Item -LiteralPath $installer.FullName -Destination $destination
+          $digest = (Get-FileHash -Algorithm SHA256 -LiteralPath $destination).Hash.ToLowerInvariant()
+          $checksum = "$digest  $expectedName`n"
+          Set-Content -LiteralPath "$destination.sha256" -Value $checksum -NoNewline -Encoding ascii
+          Set-Content -LiteralPath "signed-release/NamLauncher-$($env:RELEASE_VERSION)-Windows-SHA256SUMS.txt" -Value $checksum -NoNewline -Encoding ascii
+      - name: Upload final signed Windows release
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-windows-signed-${{ inputs.version }}
+          path: signed-release/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  publish:
+    name: Publish immutable stable release
+    if: >-
+      ${{ always()
+          && inputs.publish
+          && needs.preflight.result == 'success'
+          && needs.windows.result == 'success'
+          && needs.linux.result == 'success'
+          && needs.macos.result == 'success'
+          && needs.verify-prepared.result == 'success'
+          && (inputs.sign_windows == false || needs.sign-windows.result == 'success') }}
+    needs: [preflight, windows, linux, macos, verify-prepared, sign-windows]
+    runs-on: ubuntu-latest
+    environment: stable-production
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1f # v7.0.1
+        with:
+          ref: ${{ needs.preflight.outputs.commit_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: ${{ inputs.sign_windows }}
+        with:
+          name: release-windows-signed-${{ inputs.version }}
+          path: bundle
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: ${{ inputs.sign_windows == false }}
+        with:
+          name: release-windows-prepared-${{ inputs.version }}
+          path: bundle
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-linux-prepared-${{ inputs.version }}
+          path: bundle
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-macos-prepared-${{ inputs.version }}
+          path: bundle
+      - name: Verify final release bundle
+        run: >-
+          node scripts/verify-ci-release-bundle.mjs
+          --directory bundle
+          --version "${{ inputs.version }}"
+          --source-commit "${{ needs.preflight.outputs.commit_sha }}"
+          --windows-signature "${{ inputs.sign_windows && 'signpath' || 'unsigned' }}"
+      - name: Attest release provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: bundle/NamLauncher-*
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: v${{ inputs.version }}
+          target_commitish: ${{ needs.preflight.outputs.commit_sha }}
+          name: NamLauncher ${{ inputs.version }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          make_latest: true
+          fail_on_unmatched_files: true
+          files: bundle/*

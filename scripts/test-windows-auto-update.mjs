@@ -59,7 +59,6 @@ try {
         helperSource: path.join(project, 'packaging/update-windows.ps1'),
         workDirectory: updateDir,
         parentId: parent.pid,
-        installScope: 'current-user',
         readyTimeoutMs: 500
       }), /did not become ready/)
     } finally {
@@ -76,12 +75,11 @@ try {
     console.log('PASS rejected handoff -> correlated helper cancelled; later launcher exit did not run installer')
   }
 
-  for (const { failure, installScope } of [
-    { failure: false, installScope: 'current-user' },
-    { failure: false, installScope: 'all-users' },
-    { failure: true, installScope: 'current-user' }
+  for (const { failure } of [
+    { failure: false },
+    { failure: true }
   ]) {
-    const caseRoot = path.join(root, `${failure ? 'failure' : 'success'} ${installScope} case`)
+    const caseRoot = path.join(root, `${failure ? 'failure' : 'success'} current-user case`)
     const appDir = path.join(caseRoot, 'Launcher space')
     const updateDir = path.join(caseRoot, 'updates')
     await mkdir(appDir, { recursive: true })
@@ -100,8 +98,7 @@ try {
       const installOptions = {
         installerPath: installer, expectedSha256: getFileSha256(installer), launcherPath: launcher,
         helperSource: path.join(project, 'packaging/update-windows.ps1'), workDirectory: updateDir,
-        parentId: parent.pid,
-        installScope
+        parentId: parent.pid
       }
       await assert.rejects(launchWindowsAutoInstaller({ ...installOptions, expectedSha256: '0'.repeat(64) }), /integrity verification/)
       assert.equal(fs.readdirSync(updateDir).some(name => name.startsWith('startup-install-status-')), false)
@@ -139,11 +136,13 @@ try {
         // NSIS consumes /D before exposing $CMDLINE. The files above prove
         // that the helper preserved the original application directory.
         assert.match(installerArguments, /\/S --updated --force-run/)
-        assert.match(installerArguments, installScope === 'all-users' ? /\/allusers/i : /\/currentuser/i)
+        assert.match(installerArguments, /\/currentuser/i)
+        assert.doesNotMatch(installerArguments, /\/allusers/i)
+        assert.doesNotMatch(installerArguments, /\/D=/i)
       }
       assert.equal(fs.existsSync(handoff.helperPath), false)
       assert.equal(getFileSha256(sentinel), sentinelHash)
-      console.log(`PASS ${installScope} detached origin exit -> ${failure ? 'manual fallback relaunch' : 'silent NSIS install and updated relaunch'}; original data unchanged`)
+      console.log(`PASS current-user detached origin exit -> ${failure ? 'manual fallback relaunch' : 'silent NSIS install and updated relaunch'}; original data unchanged`)
     } finally {
       await writeFile(path.join(appDir, 'exit.txt'), 'safe cleanup requested')
       await parentExit

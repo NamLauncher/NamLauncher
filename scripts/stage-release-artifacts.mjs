@@ -12,7 +12,10 @@ const packageJson = JSON.parse(await readFile(path.join(projectRoot, 'package.js
 const version = packageJson.version
 const target = String(process.argv[2] || 'all').toLowerCase()
 const artifactNames = {
-  win: [`NamLauncher-${version}-Installer.exe`],
+  win: [
+    `NamLauncher-${version}-Installer.exe`,
+    `NamLauncher-${version}-Windows-x64.zip`
+  ],
   mac: [`NamLauncher-${version}-macOS-universal.dmg`],
   'mac-auto': [`NamLauncher-${version}-macOS-universal.zip`],
   linux: [
@@ -34,10 +37,20 @@ if (target !== 'all' && !artifactNames[target]) {
   throw new Error(`Unknown release target: ${target}`)
 }
 
+if (version.includes('-') && process.env.NAMLAUNCHER_ALLOW_PRERELEASE_STAGE !== '1') {
+  throw new Error('Prerelease artifacts are local-only unless NAMLAUNCHER_ALLOW_PRERELEASE_STAGE=1 is set explicitly.')
+}
+
 const selectedTargets = target === 'all' ? ['win', 'mac', 'linux'] : [target]
 const releaseDir = path.join(projectRoot, 'release')
-const downloadDir = path.join(projectRoot, 'website', 'downloads')
-await mkdir(downloadDir, { recursive: true })
+const stageDir = path.resolve(
+  String(process.env.NAMLAUNCHER_RELEASE_STAGE_DIR || '').trim()
+    || path.join(releaseDir, 'staged')
+)
+if (stageDir === path.parse(stageDir).root || stageDir === projectRoot) {
+  throw new Error('Release staging directory must be a dedicated child directory.')
+}
+await mkdir(stageDir, { recursive: true })
 
 const optionalStat = async (filePath) => {
   try {
@@ -109,10 +122,10 @@ const inspectArtifactSource = async (fileName) => {
 }
 
 const stageArtifactAtomically = async ({ fileName, source, sourceStat }) => {
-  const destination = path.join(downloadDir, fileName)
+  const destination = path.join(stageDir, fileName)
   const releaseChecksumDestination = `${source}.sha256`
   const checksumDestination = `${destination}.sha256`
-  const lockPath = path.join(downloadDir, `.${fileName}.stage.lock`)
+  const lockPath = path.join(stageDir, `.${fileName}.stage.lock`)
   const preparedArtifactPath = temporaryPathFor(destination)
   let lockHandle
 
@@ -151,8 +164,8 @@ const stageArtifactAtomically = async ({ fileName, source, sourceStat }) => {
       await assertArtifactMatches(destination, preparedStat.size, digest)
     }
 
-    const existingWebsiteChecksum = await optionalStat(checksumDestination)
-    if (existingWebsiteChecksum) {
+    const existingStageChecksum = await optionalStat(checksumDestination)
+    if (existingStageChecksum) {
       await assertChecksumMatches(checksumDestination, checksum)
     }
 
@@ -195,10 +208,10 @@ const publishTargetManifest = async (platformTarget, stagedArtifacts) => {
   const manifestName = `NamLauncher-${version}-${targetLabels[platformTarget]}-SHA256SUMS.txt`
   const manifest = `${stagedArtifacts.map(({ digest, fileName }) => `${digest}  ${fileName}`).join('\n')}\n`
   const releaseManifest = path.join(releaseDir, manifestName)
-  const downloadManifest = path.join(downloadDir, manifestName)
+  const stagedManifest = path.join(stageDir, manifestName)
 
   await publishChecksumAtomically(releaseManifest, manifest)
-  await publishChecksumAtomically(downloadManifest, manifest)
+  await publishChecksumAtomically(stagedManifest, manifest)
   console.log(`Staged immutable ${manifestName}`)
 }
 
@@ -225,7 +238,7 @@ for (const platformTarget of selectedTargets) {
 
 if (selectedTargets.includes('linux')) {
   const appImageSha256 = stagedByTarget.get('linux')[0].digest
-  const iconSha256 = await sha256(path.join(projectRoot, 'website', 'static', 'assets', 'namlauncher-icon.png'))
+  const iconSha256 = await sha256(path.join(projectRoot, 'NamLauncher-icon.png'))
   await new Promise((resolve, reject) => {
     const child = spawn(
       process.execPath,

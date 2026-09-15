@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { runInNewContext } from 'node:vm'
 
-const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const source = await (await import('./sourceText.mjs')).readRendererAppSource()
 const navigationSource = source.slice(
   source.indexOf('const focusDiscordAccountSection ='),
   source.indexOf('const connectLauncherDiscord =')

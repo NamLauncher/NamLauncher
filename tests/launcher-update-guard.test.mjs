@@ -19,9 +19,9 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
 const preloadSource = await readFile(new URL('../electron/preload.ts', import.meta.url), 'utf8')
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 const textSource = await readFile(new URL('../src/appText.ts', import.meta.url), 'utf8')
 
 test('classifies updater safety guards as typed expected outcomes', () => {
@@ -49,11 +49,11 @@ test('returns expected updater blocks over IPC instead of throwing and reporting
   assert.match(preloadSource, /context === 'ipc:install-launcher-update'[\s\S]*isExpectedLauncherUpdateBlockMessage\(message\)/)
 })
 
-test('opens the validated installer with an explicit manual install-mode choice and a Windows fallback', () => {
+test('opens the validated installer for the Current User and keeps a Windows fallback', () => {
   assert.match(mainSource, /assertDownloadedLauncherInstaller\(installerPath, expectedSha256\)/)
   assert.match(mainSource, /spawn\(installerPath, \[\.\.\.args\], \{[\s\S]*shell: false/)
   assert.match(mainSource, /child\.once\('spawn'/)
-  assert.match(mainSource, /await spawnDownloadedLauncherInstaller\(installerPath, \['--updated', '--choose-install-mode'\]\)/)
+  assert.match(mainSource, /await spawnDownloadedLauncherInstaller\(installerPath, \['--updated', '\/currentuser'\]\)/)
   assert.match(mainSource, /const openError = await shell\.openPath\(installerPath\)/)
 })
 

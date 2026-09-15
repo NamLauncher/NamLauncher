@@ -25,6 +25,8 @@ type InstanceSelectProps = {
   renderIcon?: (value: string) => ReactNode
   disabled?: boolean
   testId?: string
+  compact?: boolean
+  className?: string
 }
 
 type MenuPosition = {
@@ -32,6 +34,21 @@ type MenuPosition = {
   left: number
   width: number
   maxHeight: number
+}
+
+const getDetailTone = (detail?: string) => {
+  const normalized = String(detail || '').trim().toLowerCase()
+  if (normalized === 'stable' || normalized === 'recommended') return 'stable'
+  if (normalized === 'unstable' || normalized === 'beta' || normalized === 'snapshot') return 'unstable'
+  if (normalized === 'installed' || normalized === 'latest') return 'installed'
+  return 'neutral'
+}
+
+const getDetailToneClass = (tone: ReturnType<typeof getDetailTone>) => {
+  if (tone === 'stable') return 'border-emerald-300/35 bg-emerald-400/12 text-emerald-200'
+  if (tone === 'unstable') return 'border-amber-300/40 bg-amber-400/14 text-amber-200'
+  if (tone === 'installed') return 'border-sky-300/35 bg-sky-400/12 text-sky-200'
+  return 'border-slate-600/70 bg-slate-800/75 text-slate-400'
 }
 
 const MENU_GAP = 6
@@ -47,12 +64,15 @@ export function InstanceSelect({
   onOpen,
   renderIcon,
   disabled = false,
-  testId
+  testId,
+  compact = false,
+  className = ''
 }: InstanceSelectProps) {
   const id = useId()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const typeaheadRef = useRef({ value: '', at: 0 })
+  const shouldScrollActiveRef = useRef(true)
   const [open, setOpen] = useState(false)
   const selectedIndex = Math.max(0, options.findIndex((option) => option.value === value))
   const selectedOption = options[selectedIndex]
@@ -63,7 +83,8 @@ export function InstanceSelect({
     const button = buttonRef.current
     if (!button) return
     const rect = button.getBoundingClientRect()
-    const desiredHeight = Math.min(MENU_MAX_HEIGHT, Math.max(MENU_MIN_HEIGHT, options.length * 46 + 8))
+    const optionHeight = compact ? 40 : 46
+    const desiredHeight = Math.min(MENU_MAX_HEIGHT, Math.max(MENU_MIN_HEIGHT, options.length * optionHeight + 8))
     const below = Math.max(0, window.innerHeight - rect.bottom - MENU_MARGIN - MENU_GAP)
     const above = Math.max(0, rect.top - MENU_MARGIN - MENU_GAP)
     const openAbove = below < Math.min(desiredHeight, 200) && above > below
@@ -72,10 +93,24 @@ export function InstanceSelect({
     const top = openAbove
       ? Math.max(MENU_MARGIN, rect.top - maxHeight - MENU_GAP)
       : Math.min(window.innerHeight - MENU_MARGIN - maxHeight, rect.bottom + MENU_GAP)
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d')
+    const measuredTextWidth = options.reduce((largest, option) => {
+      if (!context) return largest
+      context.font = '900 14px system-ui, sans-serif'
+      const labelWidth = context.measureText(option.label).width
+      context.font = '600 10px system-ui, sans-serif'
+      const detailWidth = option.detail ? context.measureText(option.detail).width : 0
+      return Math.max(largest, labelWidth, detailWidth)
+    }, 0)
+    const decorationWidth = 32 + (renderIcon ? 36 : 0) + 22
+    const viewportWidth = Math.max(1, window.innerWidth - MENU_MARGIN * 2)
+    const width = Math.min(viewportWidth, Math.max(rect.width, Math.ceil(measuredTextWidth + decorationWidth)))
+    const left = Math.max(MENU_MARGIN, Math.min(rect.left, window.innerWidth - width - MENU_MARGIN))
     setMenuPosition({
       top: Math.max(MENU_MARGIN, top),
-      left: Math.max(MENU_MARGIN, Math.min(rect.left, window.innerWidth - rect.width - MENU_MARGIN)),
-      width: Math.min(rect.width, window.innerWidth - MENU_MARGIN * 2),
+      left,
+      width,
       maxHeight
     })
   }
@@ -105,7 +140,10 @@ export function InstanceSelect({
 
   useEffect(() => {
     if (!open) return
+    if (!shouldScrollActiveRef.current) return
     const option = listRef.current?.querySelector<HTMLElement>(`[data-option-index="${activeIndex}"]`)
+    if (!option) return
+    shouldScrollActiveRef.current = false
     option?.scrollIntoView({ block: 'nearest' })
   }, [activeIndex, open, menuPosition])
 
@@ -116,6 +154,7 @@ export function InstanceSelect({
   const showMenu = () => {
     if (disabled || options.length === 0) return
     onOpen?.()
+    shouldScrollActiveRef.current = true
     setActiveIndex(selectedIndex)
     setOpen(true)
   }
@@ -128,9 +167,14 @@ export function InstanceSelect({
     window.requestAnimationFrame(() => buttonRef.current?.focus())
   }
 
-  const moveActive = (index: number) => {
+  const moveActive = (index: number, ensureVisible = true) => {
     if (options.length === 0) return
+    shouldScrollActiveRef.current = ensureVisible
     setActiveIndex(Math.max(0, Math.min(options.length - 1, index)))
+  }
+
+  const moveActiveFromPointer = (index: number) => {
+    moveActive(index, false)
   }
 
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
@@ -196,10 +240,12 @@ export function InstanceSelect({
       role="listbox"
       aria-labelledby={`${id}-label`}
       data-testid={testId ? `${testId}-listbox` : undefined}
-      className="fixed z-[90] overflow-y-auto rounded-xl border border-slate-600/80 bg-[#101a2c] p-1.5 shadow-2xl shadow-black/60 outline-none"
+      className="nam-instance-select-menu fixed z-[90] overscroll-contain overflow-y-auto rounded-xl border border-slate-600/80 bg-[#101a2c] p-1.5 shadow-2xl shadow-black/60 outline-none"
       style={menuPosition}
     >
-      {options.map((option, index) => (
+      {options.map((option, index) => {
+        const detailTone = getDetailTone(option.detail)
+        return (
         <button
           key={option.value}
           id={`${id}-option-${index}`}
@@ -208,10 +254,11 @@ export function InstanceSelect({
           tabIndex={-1}
           aria-selected={selectedIndex === index}
           data-option-index={index}
+          data-active={activeIndex === index}
           onPointerDown={(event) => event.preventDefault()}
-          onPointerMove={() => setActiveIndex(index)}
+          onPointerMove={() => moveActiveFromPointer(index)}
           onClick={() => choose(index)}
-          className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left outline-none transition-colors ${
+          className={`nam-instance-select-option flex w-full items-center gap-3 rounded-lg px-2.5 text-left outline-none transition-colors ${compact ? 'min-h-10 py-1.5' : 'min-h-11 py-2'} ${
             activeIndex === index ? 'bg-blue-500/20 text-white' : 'text-slate-300 hover:bg-slate-800/80'
           }`}
         >
@@ -221,19 +268,27 @@ export function InstanceSelect({
             </span>
           )}
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-black">{option.label}</span>
-            {option.detail && <span className="mt-0.5 block truncate text-[10px] font-semibold text-slate-500">{option.detail}</span>}
+            <span className="block whitespace-normal break-words text-sm font-black">{option.label}</span>
+            {option.detail && (
+              <span
+                data-tone={detailTone}
+                className={`nam-instance-select-detail mt-1 inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ${getDetailToneClass(detailTone)}`}
+              >
+                {option.detail}
+              </span>
+            )}
           </span>
-          {selectedIndex === index && <Check size={16} aria-hidden="true" className="shrink-0 text-blue-300" />}
+          {selectedIndex === index && <Check size={16} aria-hidden="true" className="nam-instance-select-check shrink-0 text-blue-300" />}
         </button>
-      ))}
+        )
+      })}
     </div>,
     document.body
   )
 
   return (
-    <div className="min-w-0 space-y-2">
-      <span id={`${id}-label`} className="block text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+    <div className={`min-w-0 ${compact ? 'space-y-1' : 'space-y-2'} ${className}`.trim()}>
+      <span id={`${id}-label`} className={`block font-black uppercase text-slate-500 ${compact ? 'text-[10px] tracking-[0.12em]' : 'text-xs tracking-[0.16em]'}`}>
         {label}
       </span>
       <button
@@ -249,14 +304,14 @@ export function InstanceSelect({
         data-testid={testId}
         onClick={() => open ? setOpen(false) : showMenu()}
         onKeyDown={onKeyDown}
-        className="flex h-11 w-full items-center gap-3 rounded-lg border border-slate-700 bg-slate-950/55 px-3 text-left text-sm font-black text-slate-100 outline-none transition-colors hover:border-slate-500 hover:bg-slate-950/75 focus-visible:border-blue-400/70 focus-visible:ring-2 focus-visible:ring-blue-400/40 disabled:cursor-not-allowed disabled:opacity-55"
+        className={`flex min-h-10 w-full items-center gap-3 border border-slate-700 bg-slate-950/55 px-3 py-2 text-left font-black text-slate-100 outline-none transition-colors hover:border-slate-500 hover:bg-slate-950/75 focus-visible:border-blue-400/70 focus-visible:ring-2 focus-visible:ring-blue-400/40 disabled:cursor-not-allowed disabled:opacity-55 ${compact ? 'rounded-md text-xs' : 'rounded-lg text-sm'}`}
       >
         {renderIcon && selectedOption && (
           <span className="flex h-6 w-6 shrink-0 items-center justify-center" aria-hidden="true">
             {renderIcon(selectedOption.value)}
           </span>
         )}
-        <span id={`${id}-value`} className="min-w-0 flex-1 truncate">{selectedOption?.label || value || '—'}</span>
+        <span id={`${id}-value`} className="min-w-0 flex-1 whitespace-normal break-words">{selectedOption?.label || value || '—'}</span>
         <ChevronDown
           size={16}
           aria-hidden="true"

@@ -8,8 +8,8 @@ import {
   planModpackClientFiles
 } from '../shared/modpackCompatibility.ts'
 
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 
 const fabrishot = {
   path: 'mods/fabrishot-1.17.0.jar',

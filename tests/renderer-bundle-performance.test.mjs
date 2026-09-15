@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 const [appSource, skinPageSource, mainSource, motionFeaturesSource] = await Promise.all([
-  readFile(new URL('../src/App.tsx', import.meta.url), 'utf8'),
+  (await import('./sourceText.mjs')).readRendererAppSource(),
   readFile(new URL('../src/components/SkinPage.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/main.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/motionFeatures.ts', import.meta.url), 'utf8')

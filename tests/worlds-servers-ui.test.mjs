@@ -3,9 +3,9 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 const panelSource = await readFile(new URL('../src/components/WorldsServersPanel.tsx', import.meta.url), 'utf8')
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
 const lanIpcSource = await readFile(new URL('../electron/minecraft/lanIpc.ts', import.meta.url), 'utf8')
 const preloadSource = await readFile(new URL('../electron/preload.ts', import.meta.url), 'utf8')
 const motdSource = await readFile(new URL('../src/components/MinecraftServerMotd.tsx', import.meta.url), 'utf8')

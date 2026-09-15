@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 
 test('dismisses non-critical dialogs only when their backdrop itself is clicked', () => {
   assert.match(appSource, /showLoginModal[\s\S]*event\.target === event\.currentTarget[\s\S]*setShowLoginModal\(false\)/)

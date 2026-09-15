@@ -6,9 +6,9 @@ import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import AdmZip from 'adm-zip'
 
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
 const preloadSource = await readFile(new URL('../electron/preload.ts', import.meta.url), 'utf8')
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 const mainEntrySource = await readFile(new URL('../src/main.tsx', import.meta.url), 'utf8')
 const appTextSource = await readFile(new URL('../src/appText.ts', import.meta.url), 'utf8')
 const partnerServersSource = await readFile(new URL('../shared/partnerServers.ts', import.meta.url), 'utf8')
@@ -209,14 +209,15 @@ test('keeps Modrinth requests direct-first with bounded retry, pacing, and metad
   assert.match(mainSource, /trustedIpcHandle\('search-modrinth'[\s\S]*getModrinthFailureMessage\(err, 'search'\)/)
 })
 
-test('verifies Modrinth download candidates before replacing installed files', () => {
+test('verifies Modrinth download candidates before replacing installed files', async () => {
   assert.match(mainSource, /const DOWNLOAD_INTEGRITY_ERROR_CODE = 'EINTEGRITY'/)
   assert.match(mainSource, /const createModrinthCandidateValidator = \(/)
   assert.match(mainSource, /validateCandidate\?: DownloadCandidateValidator/)
 
-  const downloadSection = mainSource.slice(
-    mainSource.indexOf('const downloadFile = async ('),
-    mainSource.indexOf('const getDeclaredDownloadLimit =')
+  const contentServiceSource = await readFile(new URL('../electron/content/contentService.ts', import.meta.url), 'utf8')
+  const downloadSection = contentServiceSource.slice(
+    contentServiceSource.indexOf('  const downloadFile = async ('),
+    contentServiceSource.indexOf('  const getDeclaredDownloadLimit =')
   )
   const validationIndex = downloadSection.indexOf('await validateCandidate(tempPath)')
   const replacementIndex = downloadSection.indexOf('replaceFileWithCandidate(tempPath, filePath)')
@@ -233,7 +234,7 @@ test('verifies Modrinth download candidates before replacing installed files', (
   assert.match(mainSource, /fs\.renameSync\(targetPath, backupPath\)/)
   assert.match(mainSource, /fs\.renameSync\(backupPath, targetPath\)/)
   assert.match(mainSource, /const assertModrinthFileVerifiable = \(/)
-  assert.match(mainSource, /return false\s*\n\}/)
+  assert.match(mainSource, /return false\s*\n\s*\}/)
   assert.match(mainSource, /const supportedUrls = Array\.from\(new Set\(file\.downloads\.filter/)
   assert.match(mainSource, /All supported download mirrors failed/)
   assert.match(mainSource, /const createdPaths = new Set<string>\(\)/)
@@ -265,6 +266,11 @@ test('keeps renderer crashes from blanking the launcher window', () => {
   assert.match(launcherErrorBoundarySource, /componentDidCatch/)
   assert.match(launcherErrorBoundarySource, /copyErrorReport/)
   assert.match(launcherErrorBoundarySource, /window\.location\.reload/)
+  assert.match(launcherErrorBoundarySource, /failed to fetch dynamically imported module/)
+  assert.match(launcherErrorBoundarySource, /window\.sessionStorage\.getItem\(DYNAMIC_IMPORT_RECOVERY_KEY\)/)
+  assert.match(launcherErrorBoundarySource, /now - previousAttempt < DYNAMIC_IMPORT_RECOVERY_WINDOW_MS/)
+  assert.match(launcherErrorBoundarySource, /window\.sessionStorage\.setItem\(DYNAMIC_IMPORT_RECOVERY_KEY, String\(now\)\)/)
+  assert.match(launcherErrorBoundarySource, /if \(reloadOnceForStaleDynamicImport\(error\)\) return/)
   assert.match(mainSource, /render-process-gone'[\s\S]*details\.reason === 'clean-exit'/)
   assert.match(mainSource, /MAX_RENDERER_RECOVERIES_PER_WINDOW = 2/)
   assert.match(mainSource, /rendererRecoveryAttempts = rendererRecoveryAttempts\.filter/)
@@ -360,7 +366,9 @@ test('shows a blocking launcher update prompt and opens downloaded Windows insta
   assert.match(appSource, /settings\.update\.prompt\.notNow/)
   assert.match(appSource, /const launcherUpdateSteps = \[/)
   assert.match(appSource, /settings\.update\.prompt\.step\.download/)
-  assert.match(appSource, /settings\.update\.prompt\.step\.open/)
+  assert.match(appSource, /settings\.update\.prompt\.step\.verify/)
+  assert.match(appSource, /settings\.update\.prompt\.step\.install/)
+  assert.match(appSource, /settings\.update\.prompt\.step\.restart/)
   assert.match(appSource, /launcherUpdateSteps\.map\(\(label, index\) =>/)
   assert.match(appSource, /max-h-\[calc\(100vh-32px\)\][\s\S]*max-w-lg/)
   assert.match(appSource, /min-h-0 flex-1 space-y-3 overflow-y-auto p-4/)
@@ -382,7 +390,7 @@ test('shows an immediate launcher splash and MiniSand partner details in About',
   assert.match(mainSource, /backgroundColor: '#07111f'/)
   assert.match(mainSource, /data:text\/html;charset=UTF-8/)
   assert.match(mainSource, /setTimeout\(loadLauncherRenderer, 120\)/)
-  assert.match(appSource, /PARTNER_SERVERS\.map\(\(server\) =>/)
+  assert.match(appSource, /PARTNER_SERVERS\.map\(\(server(?:: any)?\) =>/)
   assert.match(appSource, /openPartnerServerWebsite\(server\)/)
   assert.match(appSource, /src=\{server\.iconUrl\}/)
   assert.match(partnerServersSource, /name: 'MiniSand'[\s\S]*websiteUrl: 'https:\/\/minisand\.online\/'/)
@@ -443,7 +451,7 @@ test('adds screenshots and drag-and-drop imports to instance content', () => {
   assert.match(mainSource, /type InstanceContentKind = 'mods' \| 'resourcepacks' \| 'shaderpacks' \| 'screenshots'/)
   assert.match(mainSource, /if \(kind === 'screenshots'\) return path\.join\(gameDirectory, 'screenshots'\)/)
   assert.match(mainSource, /kind === 'screenshots'[\s\S]*png\|jpe\?g\|webp/)
-  assert.match(mainSource, /const importInstanceContentFiles = \(request: InstanceContentRequest\) => \{/)
+  assert.match(mainSource, /const importInstanceContentFiles = async \([\s\S]*?request: InstanceContentRequest/)
   assert.match(mainSource, /trustedIpcHandle\('import-instance-content-files'/)
   assert.match(mainSource, /trustedIpcHandle\('reveal-instance-content-file'/)
   assert.match(mainSource, /const getInstanceContentId = \(contentDirectory: string, fileName: string\) =>/)
@@ -471,6 +479,25 @@ test('adds screenshots and drag-and-drop imports to instance content', () => {
   assert.match(appSource, /window\.electron\.importInstanceContentFiles/)
   assert.match(appSource, /const showingScreenshots = currentContentTab\.id === 'screenshots'/)
   assert.match(appSource, /aria-label=\{t\('content\.showFolder'\)\}/)
+})
+
+test('finishes dropped content imports and presents live progress', () => {
+  assert.match(mainSource, /const importInstanceContentFiles = async \([\s\S]*?request: InstanceContentRequest/)
+  assert.match(mainSource, /content: await getInstanceContent\(\{ instance, kind \}\)/)
+  assert.match(mainSource, /instance-content-import-progress/)
+  assert.match(preloadSource, /onInstanceContentImportProgress/)
+  assert.match(preloadSource, /ipcRenderer\.on\('instance-content-import-progress'/)
+  assert.match(appSource, /type ContentImportProgress = \{/)
+  assert.match(appSource, /const \[contentImportProgress, setContentImportProgress\]/)
+  assert.match(appSource, /onInstanceContentImportProgress\?\./)
+  assert.match(appSource, /role="progressbar"/)
+  assert.match(appSource, /aria-valuenow=\{contentImportPercent\}/)
+  assert.match(appSource, /content\.import\.progress/)
+  assert.match(appSource, /content\.import\.complete/)
+  assert.match(appSource, /contentDropActive && \(/)
+  assert.match(appSource, /content\.drop\.overlayTitle/)
+  assert.match(appTextSource, /'content\.drop\.overlayTitle': 'Release files to import'/)
+  assert.match(appTextSource, /'content\.drop\.overlayTitle': 'ปล่อยไฟล์เพื่อนำเข้า'/)
 })
 
 test('keeps Library search responsive and flips installed state immediately after install', () => {
@@ -550,7 +577,7 @@ test('keeps launcher error reports scrollable and includes player hardware metad
   assert.match(appSource, /cursor-text resize-none overflow-auto/)
 })
 
-test('uses a public report-only token fallback consistently across launcher builds', async () => {
+test('uses a public report-only token fallback consistently across the launcher build', async () => {
   const viteConfig = await readFile(new URL('../vite.config.ts', import.meta.url), 'utf8')
   const envUtils = await readFile(new URL('../scripts/env-utils.mjs', import.meta.url), 'utf8')
   const workflow = await readFile(new URL('../.github/workflows/build-desktop.yml', import.meta.url), 'utf8')
@@ -559,6 +586,11 @@ test('uses a public report-only token fallback consistently across launcher buil
   assert.match(viteConfig, new RegExp(token))
   assert.match(envUtils, new RegExp(token))
   assert.match(workflow, /NAMLAUNCHER_ERROR_REPORT_TOKEN: \$\{\{ secrets\.NAMLAUNCHER_ERROR_REPORT_TOKEN \}\}/)
+})
+
+test('keeps Vite from watching mutable QA browser profile files', async () => {
+  const viteConfig = await readFile(new URL('../vite.config.ts', import.meta.url), 'utf8')
+  assert.match(viteConfig, /'\*\*\/\.qa\/\*\*'/)
 })
 
 test('turns completed CurseForge manual downloads into a ready-to-play state', () => {

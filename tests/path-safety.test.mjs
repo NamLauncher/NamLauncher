@@ -11,7 +11,7 @@ import {
   UnsafeFilesystemPathError
 } from '../electron/pathSafety.ts'
 
-const mainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
+const mainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
 
 const withTemporaryDirectory = async (callback) => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'namlauncher-path-safety-'))

@@ -7,7 +7,7 @@ import AdmZip from 'adm-zip'
 import { assertPathWithinRoot } from '../pathSafety.ts'
 
 export const BRANDING_BRIDGE_ID = 'namlauncher-game-companion'
-export const BRANDING_BRIDGE_VERSION = '1.2.3'
+export const BRANDING_BRIDGE_VERSION = '1.2.4'
 export const BRIDGE_MANIFEST_FILENAME = 'game-bridge-manifest.json'
 
 const LEGACY_BRIDGE_ID = 'namlauncher-branding-bridge'
@@ -25,7 +25,7 @@ const SUPPORTED_LOADERS = new Set(['fabric', 'forge', 'neoforge'])
 export type BridgeArtifact = Readonly<{
   id: typeof BRANDING_BRIDGE_ID
   version: string
-  launcherVersion: '1.2.3'
+  launcherVersion: '1.2.4'
   loader: 'fabric' | 'forge' | 'neoforge'
   minimumLoaderVersion?: string
   minecraftVersion: string
@@ -39,7 +39,7 @@ export type BridgeArtifact = Readonly<{
 
 export type BridgeManifest = Readonly<{
   schemaVersion: 2
-  launcherVersion: '1.2.3'
+  launcherVersion: '1.2.4'
   artifacts: readonly BridgeArtifact[]
   author: 'nattapat2871 (https://nattapat2871.me)'
 }>
@@ -98,7 +98,7 @@ const parseArtifact = (value: unknown): BridgeArtifact | null => {
     value.id !== BRANDING_BRIDGE_ID
     || typeof value.version !== 'string'
     || !SAFE_VERSION_PATTERN.test(value.version)
-    || value.launcherVersion !== '1.2.3'
+    || value.launcherVersion !== '1.2.4'
     || typeof value.loader !== 'string'
     || !SUPPORTED_LOADERS.has(normalizeLoader(value.loader))
     || (value.minimumLoaderVersion !== undefined && (
@@ -124,7 +124,7 @@ const parseArtifact = (value: unknown): BridgeArtifact | null => {
 }
 
 export const parseBrandingBridgeManifest = (value: unknown): BridgeManifest | null => {
-  if (!isRecord(value) || value.schemaVersion !== 2 || value.launcherVersion !== '1.2.3'
+  if (!isRecord(value) || value.schemaVersion !== 2 || value.launcherVersion !== '1.2.4'
     || value.author !== 'nattapat2871 (https://nattapat2871.me)' || !Array.isArray(value.artifacts)
     || value.artifacts.length < 1 || value.artifacts.length > 32) return null
   const artifacts = value.artifacts.map(parseArtifact)
@@ -135,7 +135,7 @@ export const parseBrandingBridgeManifest = (value: unknown): BridgeManifest | nu
   if (filenames.size !== verified.length || targets.size !== verified.length) return null
   return {
     schemaVersion: 2,
-    launcherVersion: '1.2.3',
+    launcherVersion: '1.2.4',
     artifacts: verified,
     author: 'nattapat2871 (https://nattapat2871.me)'
   }

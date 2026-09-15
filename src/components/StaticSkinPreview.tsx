@@ -1,3 +1,4 @@
+// Author/creator: nattapat2871 (https://nattapat2871.me)
 import { useEffect, useState } from 'react'
 
 type StaticSkinPreviewProps = {
@@ -28,8 +29,8 @@ const renderSkinPreview = async (skin: string, model: StaticSkinPreviewProps['mo
 
   try {
     viewer.background = null
-    viewer.globalLight.intensity = 2.2
-    viewer.cameraLight.intensity = 1
+    viewer.globalLight.intensity = 2.7
+    viewer.cameraLight.intensity = 1.3
     await Promise.resolve(viewer.loadSkin(skin, { model: model === 'slim' ? 'slim' : 'default' }))
 
     // A fixed three-quarter bust angle, rendered once and then displayed as a normal PNG.

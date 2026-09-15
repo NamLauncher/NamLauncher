@@ -108,6 +108,7 @@ type WorldsServersPanelProps = {
 }
 
 const classNames = (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(' ')
+export const LAN_DISCOVERY_VISIBLE = false
 
 const supportsWorldQuickPlay = (version: string) => {
   const normalized = String(version || '').trim()
@@ -337,7 +338,7 @@ const WorldsServersPanel: React.FC<WorldsServersPanelProps> = ({
 
   return (
     <div className="space-y-4" data-testid="worlds-servers-panel">
-      <section aria-labelledby="lan-discovery-title" className="overflow-hidden rounded-xl border border-blue-400/20 bg-slate-950/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+      {LAN_DISCOVERY_VISIBLE && <section aria-labelledby="lan-discovery-title" className="overflow-hidden rounded-xl border border-blue-400/20 bg-slate-950/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
         <div className="flex flex-col gap-4 border-b border-slate-800 p-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-blue-400/25 bg-blue-500/10 text-blue-200">
@@ -440,7 +441,7 @@ const WorldsServersPanel: React.FC<WorldsServersPanelProps> = ({
           <p className="mt-3 text-[10px] font-semibold leading-4 text-slate-600">{t('lan.scope')}</p>
         </div>
         <p className="sr-only" aria-live="polite">{copiedEndpoint ? tf('lan.endpoint.copiedStatus', { endpoint: copiedEndpoint }) : ''}</p>
-      </section>
+      </section>}
 
       {!worldQuickPlaySupported && places.worlds.length > 0 && (
         <div className="flex items-start gap-3 rounded-lg border border-amber-400/20 bg-amber-500/[0.07] px-4 py-3 text-amber-100">
@@ -561,7 +562,7 @@ const WorldsServersPanel: React.FC<WorldsServersPanelProps> = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
-                      <h4 className="max-w-full truncate text-sm font-black text-slate-100" title={world.displayName}>{world.displayName}</h4>
+                      <h4 className="max-w-full break-words text-sm font-black text-slate-100">{world.displayName}</h4>
                       <span className="rounded bg-blue-500/12 px-1.5 py-0.5 text-[10px] font-black uppercase text-blue-200">{t('places.singleplayer')}</span>
                       {world.hardcore && <span className="rounded bg-red-500/12 px-1.5 py-0.5 text-[10px] font-black uppercase text-red-200">{t('places.world.hardcore')}</span>}
                     </div>
@@ -589,6 +590,7 @@ const WorldsServersPanel: React.FC<WorldsServersPanelProps> = ({
               const ping = serverPings[server.index]
               const status = ping?.status
               const online = ping?.online === true
+              const checking = pingLoading && !ping
               const icon = status?.faviconDataUrl || server.iconDataUrl
               return (
                 <article key={`server:${server.index}:${server.canonicalKey || server.address}`} className="flex flex-col gap-3 bg-slate-950/20 p-4 transition-colors hover:bg-blue-500/[0.04] lg:flex-row lg:items-center" role="listitem">
@@ -598,8 +600,8 @@ const WorldsServersPanel: React.FC<WorldsServersPanelProps> = ({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <h4 className="max-w-full truncate text-sm font-black text-slate-100" title={server.name}>{server.name}</h4>
-                        {pingLoading && !ping ? (
+                        <h4 className="max-w-full break-words text-sm font-black text-slate-100">{server.name}</h4>
+                        {checking ? (
                           <span className="flex items-center gap-1 text-[11px] font-bold text-slate-500"><Loader2 size={11} className="animate-spin" />{t('places.checking')}</span>
                         ) : online ? (
                           <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-300"><CheckCircle2 size={11} />{t('places.online')}</span>
@@ -613,13 +615,18 @@ const WorldsServersPanel: React.FC<WorldsServersPanelProps> = ({
                           <span className="flex items-center gap-1 text-emerald-300"><Users size={12} />{status.players.online}/{status.players.max}</span>
                         )}
                         {online && <span className="font-mono tabular-nums text-slate-400">{Math.round(status?.latencyMs || 0)} ms</span>}
-                        {status?.version?.name && <span className="max-w-full truncate">{status.version.name}</span>}
+                        {status?.version?.name && <span className="max-w-full break-words">{status.version.name}</span>}
                       </div>
                     </div>
                   </div>
 
                   <div className="min-w-0 flex-[1.25] text-center font-mono text-xs font-semibold leading-5 text-slate-300 lg:px-4">
-                    {online ? (
+                    {checking ? (
+                      <p className="flex items-center justify-center gap-1 text-slate-500">
+                        <Loader2 size={11} className="animate-spin" />
+                        {t('places.checking')}
+                      </p>
+                    ) : online ? (
                       <MinecraftServerMotd
                         motd={status?.motd}
                         fallback={t('places.motd.empty')}

@@ -1,3 +1,5 @@
+/* Author/creator: nattapat2871 (https://nattapat2871.me) */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -18,8 +20,40 @@
   transform-origin: center;
 }
 
-:root {
+:root,
+[data-theme='dark'] {
   color-scheme: dark;
+  --nam-page: #07111d;
+  --nam-surface: #0d182a;
+  --nam-surface-secondary: #101d31;
+  --nam-surface-tertiary: #13233b;
+  --nam-overlay: #0a1423;
+  --nam-text: #eef6ff;
+  --nam-text-soft: #91a9c5;
+  --nam-border: #2f5282;
+  --nam-separator: #1d3151;
+  --nam-accent: #60a5fa;
+  --nam-accent-strong: #2563eb;
+  --nam-grid: rgba(148, 163, 184, 0.035);
+  --nam-theme-shadow: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --nam-page: #cbd4dd;
+  --nam-surface: #dce3e9;
+  --nam-surface-secondary: #d5dde5;
+  --nam-surface-tertiary: #cbd5df;
+  --nam-overlay: #d8e0e7;
+  --nam-text: #17243a;
+  --nam-text-soft: #52647b;
+  --nam-text-muted: #6a7b90;
+  --nam-border: #91a8c0;
+  --nam-separator: #bdc9d6;
+  --nam-accent: #2563eb;
+  --nam-accent-strong: #1d4ed8;
+  --nam-grid: rgba(23, 36, 58, 0.045);
+  --nam-theme-shadow: rgba(36, 53, 75, 0.13);
 }
 
 body {
@@ -28,8 +62,8 @@ body {
     'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #09101f;
-  color: #ffffff;
+  background-color: var(--nam-page);
+  color: var(--nam-text);
   overflow: hidden;
   user-select: none;
 }
@@ -233,12 +267,346 @@ img {
   box-shadow: 0 0 24px rgba(59, 130, 246, 0.18), inset 0 0 18px rgba(96, 165, 250, 0.08);
 }
 
+.nam-account-menu-item {
+  border: 1px solid transparent;
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 180ms ease;
+}
+
+.nam-account-menu-item:hover {
+  background-color: rgba(30, 41, 59, 0.7);
+}
+
+.nam-account-menu-item[data-selected='true'] {
+  border-color: rgba(96, 165, 250, 0.7);
+  background: linear-gradient(110deg, rgba(37, 99, 235, 0.27), rgba(30, 64, 175, 0.12));
+  box-shadow:
+    0 0 0 1px rgba(96, 165, 250, 0.18),
+    0 0 22px rgba(59, 130, 246, 0.32),
+    inset 0 0 18px rgba(96, 165, 250, 0.1);
+}
+
 .nam-backdrop-grid {
   background-image:
-    linear-gradient(rgba(148, 163, 184, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.035) 1px, transparent 1px),
+    linear-gradient(var(--nam-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--nam-grid) 1px, transparent 1px),
     linear-gradient(135deg, rgba(14, 165, 233, 0.08), transparent 42%, rgba(16, 185, 129, 0.045));
   background-size: 28px 28px, 28px 28px, 100% 100%;
+}
+
+/* The launcher uses utility colors throughout its modular views. These light
+   palette mappings keep every view aligned with the public NamLauncher site
+   while preserving status colors (blue, green, amber, and red). */
+[data-theme='light'] .app-shell {
+  background-color: var(--nam-page) !important;
+  color: var(--nam-text) !important;
+}
+
+[data-theme='light'] .app-shell [class*='bg-[#09101f]'] {
+  background-color: var(--nam-page) !important;
+}
+
+[data-theme='light'] .app-shell [class*='bg-[#0d1526]'],
+[data-theme='light'] .app-shell [class*='bg-[#0a1120]'],
+[data-theme='light'] .app-shell [class*='bg-[#0b1322]'],
+[data-theme='light'] .app-shell [class*='bg-[#0d1729]'],
+[data-theme='light'] .app-shell [class*='bg-[#101827]'],
+[data-theme='light'] .app-shell [class*='bg-[#101a2c]'],
+[data-theme='light'] .app-shell [class*='bg-[#101a2e]'],
+[data-theme='light'] .app-shell [class*='bg-[#101b30]'],
+[data-theme='light'] .app-shell [class*='bg-[#111827]'],
+[data-theme='light'] .app-shell [class*='bg-[#111a2c]'] {
+  background-color: var(--nam-surface) !important;
+}
+
+[data-theme='light'] .app-shell [class*='bg-[#060b14]'],
+[data-theme='light'] .app-shell [class*='bg-[#050914]'],
+[data-theme='light'] .app-shell [class*='bg-[#07101f]'],
+[data-theme='light'] .app-shell [class*='bg-[#08111f]'],
+[data-theme='light'] .app-shell [class*='bg-[#091221]'],
+[data-theme='light'] .app-shell [class*='bg-slate-950'] {
+  background-color: var(--nam-overlay) !important;
+}
+
+[data-theme='light'] .app-shell [class*='bg-slate-900'] {
+  background-color: var(--nam-surface-secondary) !important;
+}
+
+[data-theme='light'] .app-shell [class*='bg-slate-800'] {
+  background-color: var(--nam-surface-tertiary) !important;
+}
+
+[data-theme='light'] .app-shell .nam-settings-card {
+  background: var(--nam-surface) !important;
+  box-shadow: 0 16px 42px var(--nam-theme-shadow);
+}
+
+[data-theme='light'] .app-shell [class*='text-white'],
+[data-theme='light'] .app-shell [class*='text-slate-100'],
+[data-theme='light'] .app-shell [class*='text-slate-200'],
+[data-theme='light'] .app-shell [class*='text-slate-300'] {
+  color: var(--nam-text) !important;
+}
+
+[data-theme='light'] .app-shell [class*='text-slate-400'],
+[data-theme='light'] .app-shell [class*='text-slate-500'],
+[data-theme='light'] .app-shell [class*='text-slate-600'] {
+  color: var(--nam-text-soft) !important;
+}
+
+[data-theme='light'] .app-shell [class*='text-slate-700'] {
+  color: var(--nam-text-muted) !important;
+}
+
+[data-theme='light'] .app-shell [class*='text-blue-50'],
+[data-theme='light'] .app-shell [class*='text-blue-100'],
+[data-theme='light'] .app-shell [class*='text-blue-200'],
+[data-theme='light'] .app-shell [class*='text-blue-300'],
+[data-theme='light'] .app-shell [class*='text-sky-100'],
+[data-theme='light'] .app-shell [class*='text-sky-200'],
+[data-theme='light'] .app-shell [class*='text-sky-300'] {
+  color: #1e5da8 !important;
+}
+
+[data-theme='light'] .app-shell [class*='text-indigo-100'],
+[data-theme='light'] .app-shell [class*='text-indigo-200'] {
+  color: #4338ca !important;
+}
+
+[data-theme='light'] .app-shell [class*='text-emerald-100'],
+[data-theme='light'] .app-shell [class*='text-emerald-200'],
+[data-theme='light'] .app-shell [class*='text-emerald-300'] {
+  color: #08745c !important;
+}
+
+[data-theme='light'] .app-shell [class*='text-amber-50'],
+[data-theme='light'] .app-shell [class*='text-amber-100'],
+[data-theme='light'] .app-shell [class*='text-amber-200'],
+[data-theme='light'] .app-shell [class*='text-amber-300'],
+[data-theme='light'] .app-shell [class*='text-orange-200'] {
+  color: #9a4f06 !important;
+}
+
+[data-theme='light'] .app-shell [class*='text-red-50'],
+[data-theme='light'] .app-shell [class*='text-red-100'],
+[data-theme='light'] .app-shell [class*='text-red-200'],
+[data-theme='light'] .app-shell [class*='text-red-300'],
+[data-theme='light'] .app-shell [class*='text-rose-100'],
+[data-theme='light'] .app-shell [class*='text-rose-200'],
+[data-theme='light'] .app-shell [class*='text-rose-300'] {
+  color: #b42335 !important;
+}
+
+[data-theme='light'] .app-shell [class*='text-violet-100'],
+[data-theme='light'] .app-shell [class*='text-violet-300'] {
+  color: #6d3fc0 !important;
+}
+
+[data-theme='light'] .app-shell [class~='bg-blue-500'],
+[data-theme='light'] .app-shell [class~='bg-sky-500'],
+[data-theme='light'] .app-shell [class~='bg-indigo-500'],
+[data-theme='light'] .app-shell [class~='bg-violet-500'],
+[data-theme='light'] .app-shell [class~='bg-emerald-500'],
+[data-theme='light'] .app-shell [class~='bg-red-500'],
+[data-theme='light'] .app-shell [class~='bg-rose-500'] {
+  color: #ffffff !important;
+}
+
+[data-theme='light'] .app-shell [class*='border-slate-700'],
+[data-theme='light'] .app-shell [class*='border-slate-800'],
+[data-theme='light'] .app-shell [class*='border-white/10'] {
+  border-color: var(--nam-separator) !important;
+}
+
+[data-theme='light'] .app-shell input,
+[data-theme='light'] .app-shell select,
+[data-theme='light'] .app-shell textarea {
+  color: var(--nam-text);
+  caret-color: var(--nam-accent);
+}
+
+[data-theme='light'] .app-shell input::placeholder,
+[data-theme='light'] .app-shell textarea::placeholder {
+  color: var(--nam-text-muted);
+}
+
+[data-theme='light'] .app-shell button:disabled,
+[data-theme='light'] .app-shell button[aria-disabled='true'],
+[data-theme='light'] .app-shell [role='button'][aria-disabled='true'] {
+  color: var(--nam-text-muted) !important;
+  opacity: 0.68 !important;
+}
+
+[data-theme='light'] .app-shell .nam-account-menu-item:hover {
+  background-color: rgba(211, 219, 227, 0.9);
+}
+
+[data-theme='light'] .app-shell .nam-account-menu-item[data-selected='true'] {
+  border-color: #5f8fc7 !important;
+  background: linear-gradient(110deg, rgba(170, 199, 230, 0.88), rgba(215, 229, 245, 0.76)) !important;
+  box-shadow:
+    0 0 0 1px rgba(37, 99, 235, 0.13),
+    0 0 18px rgba(37, 99, 235, 0.2),
+    inset 0 0 16px rgba(255, 255, 255, 0.3) !important;
+}
+
+/* InstanceSelect menus render through a body portal, so they need semantic
+   theme hooks instead of relying on the .app-shell descendant palette. */
+[data-theme='light'] .nam-instance-select-menu {
+  background-color: var(--nam-surface) !important;
+  border-color: var(--nam-border) !important;
+  box-shadow: 0 18px 46px var(--nam-theme-shadow) !important;
+}
+
+[data-theme='light'] .nam-instance-select-option {
+  color: var(--nam-text-soft) !important;
+}
+
+[data-theme='light'] .nam-instance-select-option:hover {
+  background-color: var(--nam-surface-tertiary) !important;
+  color: var(--nam-text) !important;
+}
+
+[data-theme='light'] .nam-instance-select-option[data-active='true'] {
+  background-color: #d7e5f5 !important;
+  color: var(--nam-text) !important;
+}
+
+[data-theme='light'] .nam-instance-select-detail {
+  color: var(--nam-text-muted) !important;
+}
+
+[data-theme='light'] .nam-instance-select-detail[data-tone='stable'] {
+  border-color: #5aa87a !important;
+  background-color: #cce8d7 !important;
+  color: #155a35 !important;
+}
+
+[data-theme='light'] .nam-instance-select-detail[data-tone='unstable'] {
+  border-color: #c38b35 !important;
+  background-color: #f1dfbd !important;
+  color: #75430a !important;
+}
+
+[data-theme='light'] .nam-instance-select-detail[data-tone='installed'] {
+  border-color: #669ec8 !important;
+  background-color: #d1e4f2 !important;
+  color: #18577e !important;
+}
+
+[data-theme='light'] .nam-instance-select-check {
+  color: var(--nam-accent-strong) !important;
+}
+
+[data-theme='light'] .app-shell .nam-skin-library-dialog {
+  background-color: var(--nam-surface) !important;
+  border-color: #9bb6d3 !important;
+  box-shadow: 0 24px 70px rgba(36, 53, 75, 0.24) !important;
+}
+
+[data-theme='light'] .app-shell .nam-skin-library-header {
+  background: linear-gradient(125deg, #cad8e6 0%, #d9e3ec 48%, #e5eaf0 100%) !important;
+  border-color: #b4c6d9 !important;
+}
+
+[data-theme='light'] .app-shell .nam-skin-library-mark {
+  background-color: rgba(225, 233, 241, 0.9) !important;
+  border-color: #9fbfe3 !important;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.12);
+}
+
+[data-theme='light'] .app-shell .nam-skin-library-subtitle {
+  color: #52647b !important;
+}
+
+[data-theme='light'] .app-shell .nam-skin-library-close {
+  background-color: rgba(218, 227, 236, 0.9);
+  color: #52647b !important;
+  box-shadow: 0 6px 18px rgba(36, 53, 75, 0.1);
+}
+
+[data-theme='light'] .app-shell .nam-skin-library-close:hover {
+  background-color: #cddae6 !important;
+  color: #17243a !important;
+}
+
+[data-theme='light'] .app-shell .nam-skin-star-badge {
+  border-color: #ddb64c !important;
+  background: rgba(255, 239, 183, 0.94) !important;
+  color: #765000 !important;
+}
+
+[data-theme='light'] .app-shell .nam-skin-model-badge {
+  border-color: #91b2d4 !important;
+  background: rgba(220, 232, 244, 0.95) !important;
+  color: #214d78 !important;
+}
+
+[data-theme='light'] .app-shell .nam-skin-rotate-badge {
+  border-color: #9eafc1 !important;
+  background: rgba(218, 227, 236, 0.94) !important;
+  color: #31455f !important;
+}
+
+[data-theme='light'] .app-shell .nam-skin-surface,
+[data-theme='light'] .app-shell .nam-skin-accordion,
+[data-theme='light'] .app-shell .nam-skin-editor-dialog {
+  background-color: var(--nam-surface) !important;
+  border-color: var(--nam-separator) !important;
+}
+
+[data-theme='light'] .app-shell .nam-skin-preview-panel {
+  background:
+    radial-gradient(circle at 50% 22%, rgba(37, 99, 235, 0.18), transparent 40%),
+    linear-gradient(180deg, #dce7f1, #cbd8e4) !important;
+  border-color: var(--nam-border) !important;
+  box-shadow: 0 18px 42px rgba(36, 53, 75, 0.15);
+}
+
+[data-theme='light'] .app-shell .nam-skin-preview-stage {
+  background-color: rgba(226, 233, 240, 0.28);
+}
+
+[data-theme='light'] .app-shell .nam-skin-card-selected {
+  background:
+    radial-gradient(circle at 50% 16%, rgba(96, 165, 250, 0.42), rgba(184, 208, 234, 0.72) 44%, rgba(220, 228, 236, 0.97) 80%) !important;
+  border-color: #7fa7d7 !important;
+  box-shadow: 0 18px 42px rgba(37, 99, 235, 0.13) !important;
+}
+
+[data-theme='light'] .app-shell .nam-skin-editor-preview {
+  background:
+    radial-gradient(circle at 50% 25%, rgba(37, 99, 235, 0.2), transparent 44%),
+    #d4e0eb !important;
+  border-color: var(--nam-border) !important;
+}
+
+[data-theme='light'] .app-shell .nam-skin-beta-badge,
+[data-theme='light'] .app-shell .nam-skin-editor-check {
+  border-color: var(--nam-surface) !important;
+}
+
+[data-theme='light'] img {
+  outline-color: rgba(23, 36, 58, 0.14);
+}
+
+[data-theme='light'] ::-webkit-scrollbar-thumb {
+  background: #a7b5c5;
+}
+
+[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
+  background: #8495a9;
+}
+
+.nam-theme-switching body,
+.nam-theme-switching .app-shell,
+.nam-theme-switching .app-shell *,
+.nam-theme-switching .app-shell *::before,
+.nam-theme-switching .app-shell *::after,
+.nam-theme-switching .nam-instance-select-menu,
+.nam-theme-switching .nam-instance-select-menu * {
+  transition-property: color, background-color, border-color, box-shadow, fill, stroke, opacity !important;
+  transition-duration: 320ms !important;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1) !important;
 }
 
 .nam-motion-card {
@@ -344,6 +712,14 @@ img {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .nam-theme-switching body,
+  .nam-theme-switching .app-shell,
+  .nam-theme-switching .app-shell *,
+  .nam-theme-switching .app-shell *::before,
+  .nam-theme-switching .app-shell *::after {
+    transition-duration: 1ms !important;
+  }
+
   .app-shell,
   .nam-motion-card,
   .nam-progress-bar::after {

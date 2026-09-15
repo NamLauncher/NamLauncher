@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 
 test('loads the launcher data path with an explicit recoverable state', () => {
   assert.match(appSource, /type DataLocationStatus = 'loading' \| 'ready' \| 'error'/)

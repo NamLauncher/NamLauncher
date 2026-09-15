@@ -12,8 +12,8 @@ const launcherCorePatch = await readFile(new URL('../patches/minecraft-launcher-
 const launcherCorePruneScript = await readFile(new URL('../scripts/prune-minecraft-launcher-core-request.mjs', import.meta.url), 'utf8')
 const registerSchemePruneScript = await readFile(new URL('../scripts/prune-unused-register-scheme.mjs', import.meta.url), 'utf8')
 const discordRpcUtilSource = await readFile(new URL('../node_modules/discord-rpc/src/util.js', import.meta.url), 'utf8')
-const electronMainSource = await readFile(new URL('../electron/main.ts', import.meta.url), 'utf8')
-const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const electronMainSource = await (await import('./sourceText.mjs')).readElectronMainSource()
+const appSource = await (await import('./sourceText.mjs')).readRendererAppSource()
 const javaManagerSource = await readFile(new URL('../electron/javaManager.ts', import.meta.url), 'utf8')
 const installerIconScript = await readFile(new URL('../scripts/ensure-installer-icon.mjs', import.meta.url), 'utf8')
 const assertReportTokenScript = await readFile(new URL('../scripts/assert-error-report-token.mjs', import.meta.url), 'utf8')
@@ -130,9 +130,10 @@ test('ships AppImage with a fail-closed Chromium namespace sandbox', () => {
 test('defaults Windows builds to per-user installs so automatic updates do not require elevation', () => {
   assert.equal(packageJson.build.nsis.perMachine, false)
   assert.equal(packageJson.build.nsis.oneClick, false)
-  assert.equal(packageJson.build.nsis.allowElevation, true)
+  assert.equal(packageJson.build.nsis.allowToChangeInstallationDirectory, false)
+  assert.equal(packageJson.build.nsis.allowElevation, false)
   assert.equal(packageJson.build.nsis.selectPerMachineByDefault, false)
-  assert.equal(packageJson.build.nsis.packElevateHelper, true)
+  assert.equal(packageJson.build.nsis.packElevateHelper, false)
 })
 
 test('keeps the launcher window within a supported minimum size', () => {
@@ -158,6 +159,9 @@ test('refuses plaintext-like Linux safeStorage before persisting Microsoft crede
 })
 
 test('verifies the Windows installer icon before staging release artifacts', () => {
+  assert.equal(packageJson.build.afterPack, undefined)
+  assert.equal(packageJson.build.afterSign, 'scripts/write-windows-bundle-manifest.cjs')
+  assert.match(packageJson.scripts['dist:win'], /verify-windows-bundle-zip\.mjs/)
   assert.match(packageJson.scripts['dist:win'], /ensure-installer-icon\.mjs/)
   assert.match(installerIconScript, /IconGroupEntry\.fromEntries/)
   assert.doesNotMatch(installerIconScript, /IconGroupEntry\.replaceIconsForResource/)
