@@ -481,6 +481,25 @@ test('adds screenshots and drag-and-drop imports to instance content', () => {
   assert.match(appSource, /aria-label=\{t\('content\.showFolder'\)\}/)
 })
 
+test('finishes dropped content imports and presents live progress', () => {
+  assert.match(mainSource, /const importInstanceContentFiles = async \([\s\S]*?request: InstanceContentRequest/)
+  assert.match(mainSource, /content: await getInstanceContent\(\{ instance, kind \}\)/)
+  assert.match(mainSource, /instance-content-import-progress/)
+  assert.match(preloadSource, /onInstanceContentImportProgress/)
+  assert.match(preloadSource, /ipcRenderer\.on\('instance-content-import-progress'/)
+  assert.match(appSource, /type ContentImportProgress = \{/)
+  assert.match(appSource, /const \[contentImportProgress, setContentImportProgress\]/)
+  assert.match(appSource, /onInstanceContentImportProgress\?\./)
+  assert.match(appSource, /role="progressbar"/)
+  assert.match(appSource, /aria-valuenow=\{contentImportPercent\}/)
+  assert.match(appSource, /content\.import\.progress/)
+  assert.match(appSource, /content\.import\.complete/)
+  assert.match(appSource, /contentDropActive && \(/)
+  assert.match(appSource, /content\.drop\.overlayTitle/)
+  assert.match(appTextSource, /'content\.drop\.overlayTitle': 'Release files to import'/)
+  assert.match(appTextSource, /'content\.drop\.overlayTitle': 'ปล่อยไฟล์เพื่อนำเข้า'/)
+})
+
 test('keeps Library search responsive and flips installed state immediately after install', () => {
   assert.match(appSource, /const LIBRARY_SEARCH_DEBOUNCE_MS = 150/)
   assert.match(appSource, /const LIBRARY_SEARCH_CACHE_TTL_MS = 5 \* 60 \* 1000/)
