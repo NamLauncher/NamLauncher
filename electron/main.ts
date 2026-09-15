@@ -91,6 +91,19 @@ import {
 import { getLauncherUpdateCleanupRetryDelay } from '../shared/launcherUpdateCleanup.ts'
 import { createStartupUpdateController, selectStartupUpdateTarget } from '../shared/startupUpdate.ts'
 import { launchWindowsAutoInstaller } from './updates/windowsAutoInstaller.ts'
+import {
+  readWindowsUninstallRecords,
+  resolveWindowsInstallScopeFromRecords
+} from './updates/windowsInstallScope.ts'
+import {
+  WINDOWS_SCOPE_MIGRATION_MARKER_FILE,
+  createPendingWindowsScopeMigrationMarker,
+  readWindowsScopeMigrationMarker,
+  selectVerifiedLegacyCleanup,
+  verifyLegacyInstallDataPreserved,
+  writeWindowsScopeMigrationMarker,
+  type WindowsScopeMigrationMarker
+} from './updates/windowsLegacyInstallMigration.ts'
 import { installPlatformAutoUpdate } from './updates/platformAutoUpdate.ts'
 import { recoverLegacyLauncherDataPath } from './dataLocationRecovery.ts'
 import { WindowResponsivenessMonitor } from './windowResponsiveness.ts'
@@ -1281,6 +1294,7 @@ const legacyUserDataPath = defaultUserDataPath
 const userDataPath = app.getPath('userData')
 const accountsPath = path.join(userDataPath, 'accounts.json')
 const settingsPath = path.join(userDataPath, 'settings.json')
+const windowsScopeMigrationMarkerPath = path.join(userDataPath, WINDOWS_SCOPE_MIGRATION_MARKER_FILE)
 const launcherDiscordAccountPath = path.join(userDataPath, 'discord-account.json')
 const clientIdentityPath = path.join(userDataPath, 'client.json')
 const curseForgeConfigPath = path.join(userDataPath, 'curseforge.json')
@@ -1491,6 +1505,139 @@ const persistLauncherDataLocationForUpdate = () => {
     throw new Error('NamLauncher could not preserve the current game data folder for the update.')
   }
   log.info(`Preserved launcher data location for update: ${userDataPath}`)
+}
+
+const getWindowsProgramFilesRoots = () => [
+  String(process.env.ProgramFiles || '').trim(),
+  String(process.env['ProgramFiles(x86)'] || '').trim()
+].filter(Boolean)
+
+const getExpectedCurrentUserLauncherPath = () => {
+  const localAppDataPath = String(process.env.LOCALAPPDATA || '').trim()
+  if (!path.win32.isAbsolute(localAppDataPath)) {
+    throw new Error('Windows LocalAppData path is unavailable.')
+  }
+  return path.win32.join(localAppDataPath, 'Programs', 'NamLauncher', 'Launcher', path.basename(process.execPath))
+}
+
+const preparePendingWindowsScopeMigration = (targetVersion: string) => {
+  if (process.platform !== 'win32' || !app.isPackaged) return
+  try {
+    const records = readWindowsUninstallRecords()
+    if (resolveWindowsInstallScopeFromRecords(process.execPath, records) !== 'all-users') return
+    const marker = createPendingWindowsScopeMigrationMarker({
+      legacyLauncherPath: process.execPath,
+      currentUserLauncherPath: getExpectedCurrentUserLauncherPath(),
+      dataPath: userDataPath,
+      sourceVersion: app.getVersion(),
+      targetVersion
+    })
+    writeWindowsScopeMigrationMarker(windowsScopeMigrationMarkerPath, marker)
+    log.info('Prepared a guarded All Users to Current User migration marker.')
+  } catch (error) {
+    // Updating is still safe: the installer never removes the old copy. Without
+    // a verified marker, post-relaunch cleanup is simply disabled.
+    log.warn('Could not prepare automatic cleanup of the legacy All Users installation; it will be kept.', error)
+  }
+}
+
+let windowsScopeMigrationCleanupInFlight = false
+
+const writeBlockedWindowsScopeMigration = (marker: WindowsScopeMigrationMarker, error: unknown) => {
+  const reason = error instanceof Error ? error.message : String(error || 'Unknown migration error')
+  try {
+    writeWindowsScopeMigrationMarker(windowsScopeMigrationMarkerPath, {
+      ...marker,
+      state: 'blocked',
+      blockedReason: reason.slice(0, 500)
+    })
+  } catch (markerError) {
+    log.warn('Could not record the blocked Windows installation migration.', markerError)
+  }
+}
+
+const runPendingWindowsScopeMigrationAfterRendererReady = async () => {
+  if (windowsScopeMigrationCleanupInFlight || process.platform !== 'win32' || !app.isPackaged) return
+  const marker = readWindowsScopeMigrationMarker(windowsScopeMigrationMarkerPath)
+  if (!marker || marker.state !== 'pending-relaunch') return
+  windowsScopeMigrationCleanupInFlight = true
+  try {
+    const records = readWindowsUninstallRecords()
+    const verified = selectVerifiedLegacyCleanup({
+      marker,
+      currentLauncherPath: process.execPath,
+      currentVersion: app.getVersion(),
+      currentDataPath: userDataPath,
+      localAppDataPath: String(process.env.LOCALAPPDATA || ''),
+      programFilesRoots: getWindowsProgramFilesRoots(),
+      uninstallRecords: records
+    })
+    const preserved = await verifyLegacyInstallDataPreserved({
+      legacyInstallDirectory: verified.legacyInstallDirectory,
+      currentDataPath: verified.dataPath
+    })
+    const uninstaller = fs.lstatSync(verified.uninstallerPath)
+    if (!uninstaller.isFile() || uninstaller.isSymbolicLink()) {
+      throw new Error('Legacy uninstaller file is unsafe.')
+    }
+    const uninstallerSha256 = crypto.createHash('sha256')
+      .update(fs.readFileSync(verified.uninstallerPath))
+      .digest('hex')
+    const readyMarker: WindowsScopeMigrationMarker = {
+      ...marker,
+      state: 'ready-for-cleanup',
+      readyAt: new Date().toISOString(),
+      currentLauncherPid: process.pid,
+      uninstallerPath: verified.uninstallerPath,
+      uninstallerSha256
+    }
+    writeWindowsScopeMigrationMarker(windowsScopeMigrationMarkerPath, readyMarker)
+    log.info(
+      `Verified Current User relaunch and preserved legacy data (${preserved.files} files, ${preserved.bytes} bytes). Requesting UAC for legacy app cleanup.`
+    )
+    const powershellPath = path.join(
+      process.env.SystemRoot || 'C:\\Windows',
+      'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'
+    )
+    const helperPath = path.join(process.resourcesPath, 'updater', 'cleanup-legacy-windows.ps1')
+    const helper = fs.lstatSync(helperPath)
+    if (!helper.isFile() || helper.isSymbolicLink()) throw new Error('Legacy cleanup helper is unavailable or unsafe.')
+    const cleanup = spawn(powershellPath, [
+      '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+      '-File', helperPath,
+      '-MarkerPath', windowsScopeMigrationMarkerPath,
+      '-Nonce', marker.nonce
+    ], {
+      windowsHide: true,
+      stdio: 'ignore',
+      shell: false
+    })
+    cleanup.once('error', (error) => {
+      writeBlockedWindowsScopeMigration(readyMarker, error)
+      log.warn('Could not start the guarded legacy installation cleanup.', error)
+      windowsScopeMigrationCleanupInFlight = false
+    })
+    cleanup.once('close', (code) => {
+      try {
+        const completed = readWindowsScopeMigrationMarker(windowsScopeMigrationMarkerPath)
+        if (code === 0 && completed?.state === 'cleanup-complete') {
+          log.info('Legacy All Users installation cleanup completed after the Current User launcher became ready.')
+        } else if (completed?.state === 'cleanup-deferred') {
+          log.info('Legacy All Users cleanup was cancelled; both installations and all data were kept.')
+        } else {
+          log.warn(`Legacy All Users cleanup did not complete (helper exit code ${code ?? 'unknown'}).`)
+        }
+      } catch (error) {
+        log.warn('Could not read the legacy cleanup result.', error)
+      } finally {
+        windowsScopeMigrationCleanupInFlight = false
+      }
+    })
+  } catch (error) {
+    writeBlockedWindowsScopeMigration(marker, error)
+    log.warn('Blocked legacy All Users cleanup; both installations and all data were kept.', error)
+    windowsScopeMigrationCleanupInFlight = false
+  }
 }
 
 const persistImplicitPackagedDataLocation = () => {
@@ -3468,7 +3615,7 @@ const spawnDownloadedLauncherInstaller = (
 const openDownloadedLauncherInstaller = async (installerPath: string, expectedSha256: string) => {
   assertDownloadedLauncherInstaller(installerPath, expectedSha256)
   try {
-    await spawnDownloadedLauncherInstaller(installerPath, ['--updated', '--choose-install-mode'])
+    await spawnDownloadedLauncherInstaller(installerPath, ['--updated', '/currentuser'])
   } catch (error) {
     const openError = await shell.openPath(installerPath)
     if (!openError) {
@@ -3507,6 +3654,7 @@ const installLauncherUpdateUnsafe = async () => {
   }
 
   persistLauncherDataLocationForUpdate()
+  preparePendingWindowsScopeMigration(update.latestVersion)
 
   if (process.platform !== 'win32') {
     await openExternalUrl(update.downloadUrl)
@@ -3989,6 +4137,7 @@ const runStartupLauncherUpdateOnce = createStartupUpdateController({
     try {
       assertLauncherUpdateInstallIsSafe()
       persistLauncherDataLocationForUpdate()
+      preparePendingWindowsScopeMigration(update.latestVersion)
       if (target === 'windows-x64') {
         const downloadUrl = assertTrustedLauncherUpdateUrl(update.downloadUrl)
         const installerSha256 = normalizeLauncherInstallerSha256(update.installerSha256)
@@ -11470,6 +11619,12 @@ trustedIpcHandle('cache-image-url', async (_event, url: string) => {
 trustedIpcHandle('renderer-ready', async (event) => {
   if (!isMainRendererInvocation(event)) return false
   log.info('--- NamLauncher renderer ready ---')
+  const migrationTimer = setTimeout(() => {
+    runPendingWindowsScopeMigrationAfterRendererReady().catch((error) => {
+      log.warn('Could not inspect the pending Windows installation migration.', error)
+    })
+  }, 750)
+  migrationTimer.unref?.()
   return true
 })
 
