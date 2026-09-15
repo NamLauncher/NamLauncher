@@ -44,9 +44,31 @@ const isBenignDiscordDestroyError = (err: unknown) => {
 const MINECRAFT_TEXTURE_ID_PATTERN = /^[a-f0-9]{64}$/i
 const MINECRAFT_UUID_PATTERN = /^[a-f0-9]{32}$/i
 const MINECRAFT_PLAYER_NAME_PATTERN = /^[A-Za-z0-9_]{3,16}$/
+export const DEFAULT_MINECRAFT_SKIN_HEAD = 'default:steve'
+const DEFAULT_MINECRAFT_SKIN_NAMES = new Set(['steve', 'alex', 'noor', 'sunny', 'ari', 'zuri', 'makena', 'kai', 'efe'])
+// Built-in presets are not player accounts. Resolve them to their immutable
+// texture hashes so the Discord artwork cannot be confused with a username.
+const DEFAULT_MINECRAFT_SKIN_TEXTURE_IDS: Record<string, string> = {
+  steve: '06628f9cef88520da742ab280a01677ce17c99717f964ed89ed791673121094c',
+  alex: '99391ed9dff9581ec88daf23b9b028adc9ac91f52889edcff1c982d0923c0cff',
+  noor: '66343b7a4d6a63af1abed71437728794a9c5d5fc666a10a3cce666e5759ac3ff',
+  sunny: '32ff3be1394115bbbbcb3b6aea20f0cd496338d31a5341ef73cf1df6bc963dbe',
+  ari: '448bda6817fa3894632cc11751f3f080dde917b2ad1679ed106f107984289560',
+  zuri: 'adc7f1b62cdf791096493d14c3edc8b36fd940e4bf10093fc48f461b0f0a3dba',
+  makena: 'e58a664738d0073c348265052ab60a0ebf15f271a1b6aaeec0e47c027bc7cd0e',
+  kai: 'f5b3af3440257759f074ae07b630a65195d7222241dc7af1189b954cf7fc3f76',
+  efe: 'fa3569f027caadcc17efbb1b46f8d0f2830c408cafc774e1f3bf573f4bb7c419'
+}
 
 export const getPlayerHeadUrl = (uuid: string, playerName: string, textureId?: string | null) => {
   const normalizedTextureId = String(textureId || '').trim().toLowerCase()
+  if (normalizedTextureId.startsWith('default:')) {
+    const defaultName = normalizedTextureId.slice('default:'.length)
+    if (DEFAULT_MINECRAFT_SKIN_NAMES.has(defaultName)) {
+      const defaultTextureId = DEFAULT_MINECRAFT_SKIN_TEXTURE_IDS[defaultName]
+      if (defaultTextureId) return `https://mc-heads.net/head/${defaultTextureId}/64.png`
+    }
+  }
   if (MINECRAFT_TEXTURE_ID_PATTERN.test(normalizedTextureId)) {
     // Texture IDs are immutable content hashes, so a skin change also changes the
     // Discord image URL instead of reusing MCHeads' long-lived UUID/name cache.

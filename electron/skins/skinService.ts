@@ -1,5 +1,6 @@
 // Author/creator: nattapat2871 (https://nattapat2871.me)
 import type { Server } from 'http'
+import { DEFAULT_MINECRAFT_SKIN_HEAD } from '../discord'
 import type {
   SkinActionRequest,
   SkinDefaultRequest,
@@ -1176,18 +1177,31 @@ accountStore = getSkinAccountStore(library, account.id)
       if (!cleanAccountId) return null
 
       const account = readAccounts().find((item) => item.id === cleanAccountId)
+      if (!account) return null
+
       const accountStore = readSkinLibrary().accounts[cleanAccountId]
-      if (!account || !accountStore) return null
+      // A new offline account may launch before the skin page creates its
+      // library entry. Discord still receives the same default Steve head.
+      if (!accountStore) {
+        return account.type === 'offline' ? DEFAULT_MINECRAFT_SKIN_HEAD : null
+      }
 
       if (account.type === 'offline') {
-        if (accountStore.activeDefaultSkinId || !accountStore.activeSkinId) return null
+        if (accountStore.activeDefaultSkinId) {
+          try {
+            return `default:${getDefaultSkinPreset(accountStore.activeDefaultSkinId).id}`
+          } catch {
+            return DEFAULT_MINECRAFT_SKIN_HEAD
+          }
+        }
+        if (!accountStore.activeSkinId) return DEFAULT_MINECRAFT_SKIN_HEAD
         const activePreset = accountStore.skins.find((skin) => skin.id === accountStore.activeSkinId)
-        if (!activePreset) return null
+        if (!activePreset) return DEFAULT_MINECRAFT_SKIN_HEAD
         return verifyMinecraftTextureFile({
           rootDirectory: skinsDirectory,
           fileName: activePreset.fileName,
           textureId: activePreset.sourceTextureId
-        })
+        }) || DEFAULT_MINECRAFT_SKIN_HEAD
       }
 
       const profileCache = accountStore.profileCache
