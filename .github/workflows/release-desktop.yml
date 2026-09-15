@@ -103,6 +103,8 @@ jobs:
           path: |
             release/NamLauncher-${{ inputs.version }}-Installer.exe
             release/NamLauncher-${{ inputs.version }}-Installer.exe.sha256
+            release/NamLauncher-${{ inputs.version }}-Windows-x64.zip
+            release/NamLauncher-${{ inputs.version }}-Windows-x64.zip.sha256
             release/NamLauncher-${{ inputs.version }}-Windows-SHA256SUMS.txt
           if-no-files-found: error
           compression-level: 0

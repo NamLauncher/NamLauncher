@@ -10,7 +10,10 @@ import test from 'node:test'
 const version = '9.8.7'
 const sourceCommit = 'a'.repeat(40)
 const platformFiles = {
-  Windows: [`NamLauncher-${version}-Installer.exe`],
+  Windows: [
+    `NamLauncher-${version}-Installer.exe`,
+    `NamLauncher-${version}-Windows-x64.zip`
+  ],
   macOS: [`NamLauncher-${version}-macOS-universal.dmg`],
   Linux: [
     `NamLauncher-${version}-Linux-x64.AppImage`,
@@ -67,8 +70,9 @@ test('verifies all three operating-system bundles and writes deployment metadata
   const manifest = JSON.parse(await readFile(path.join(directory, `NamLauncher-${version}-release-manifest.json`), 'utf8'))
   assert.equal(manifest.version, version)
   assert.equal(manifest.source_commit, sourceCommit)
-  assert.equal(manifest.artifacts.length, 7)
+  assert.equal(manifest.artifacts.length, 8)
   assert.equal(manifest.artifacts.find(({ id }) => id === 'windows-x64').signature, 'signpath')
+  assert.equal(manifest.artifacts.find(({ id }) => id === 'windows-app-x64').signature, 'checksum')
   assert.equal(manifest.artifacts.find(({ id }) => id === 'macos-universal').signature, 'unsigned')
 })
 

@@ -12,6 +12,8 @@ test('publishes 1.2.4 without invoking SignPath when signing is disabled', () =>
   assert.match(workflow, /sign_windows:[\s\S]*type: boolean[\s\S]*default: false/)
   assert.match(workflow, /sign-windows:[\s\S]*if: \$\{\{ inputs\.publish && inputs\.sign_windows \}\}/)
   assert.match(workflow, /name: release-windows-prepared-\$\{\{ inputs\.version \}\}/)
+  assert.match(workflow, /release\/NamLauncher-\$\{\{ inputs\.version \}\}-Windows-x64\.zip/)
+  assert.match(workflow, /release\/NamLauncher-\$\{\{ inputs\.version \}\}-Windows-x64\.zip\.sha256/)
   assert.match(workflow, /--windows-signature "\$\{\{ inputs\.sign_windows && 'signpath' \|\| 'unsigned' \}\}"/)
 })
 

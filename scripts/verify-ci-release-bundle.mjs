@@ -37,6 +37,10 @@ const artifactDefinitions = [
     fileName: `NamLauncher-${version}-Installer.exe`, recommended: true, signature: windowsSignature
   },
   {
+    id: 'windows-app-x64', platform: 'windows', label: 'Windows application bundle', format: 'zip', arch: 'x64',
+    fileName: `NamLauncher-${version}-Windows-x64.zip`, recommended: false, signature: 'checksum'
+  },
+  {
     id: 'macos-universal', platform: 'macos', label: 'macOS', format: 'dmg', arch: 'universal',
     fileName: `NamLauncher-${version}-macOS-universal.dmg`, recommended: false, signature: 'unsigned'
   },
