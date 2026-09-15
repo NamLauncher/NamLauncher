@@ -324,9 +324,11 @@ jobs:
           [[ -s "$dmg_path" && -s "$checksum_path" && -s "$manifest_path" ]]
           (cd release && shasum -a 256 -c "$(basename "$checksum_path")")
           (cd release && shasum -a 256 -c "$(basename "$manifest_path")")
-          printf 'dmg_sha256=%s\n' "$(shasum -a 256 "$dmg_path" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
-          printf 'checksum_sha256=%s\n' "$(shasum -a 256 "$checksum_path" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
-          printf 'manifest_sha256=%s\n' "$(shasum -a 256 "$manifest_path" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          {
+            printf 'dmg_sha256=%s\n' "$(shasum -a 256 "$dmg_path" | awk '{print $1}')"
+            printf 'checksum_sha256=%s\n' "$(shasum -a 256 "$checksum_path" | awk '{print $1}')"
+            printf 'manifest_sha256=%s\n' "$(shasum -a 256 "$manifest_path" | awk '{print $1}')"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Smoke test application from the mounted DMG
         timeout-minutes: 3
@@ -604,7 +606,19 @@ jobs:
               '[.[] | select(.name == $dmg or .name == $checksum or .name == $manifest)] | sort_by(.id)' \
               <<< "$assets_after"
           )"
-          if [[ "$tag_sha_after" != "$EXPECTED_SOURCE_SHA" || "$tag_sha_after" != "$tag_sha_before" || "$release_after" != "$release_before" || "$expected_assets_after" != "$expected_assets_before" ]]; then
+          if [[ "$tag_sha_after" != "$EXPECTED_SOURCE_SHA" ]]; then
+            printf 'Tag, Draft Release, or macOS asset identity changed during Intel verification.\n' >&2
+            exit 1
+          fi
+          if [[ "$tag_sha_after" != "$tag_sha_before" ]]; then
+            printf 'Tag, Draft Release, or macOS asset identity changed during Intel verification.\n' >&2
+            exit 1
+          fi
+          if [[ "$release_after" != "$release_before" ]]; then
+            printf 'Tag, Draft Release, or macOS asset identity changed during Intel verification.\n' >&2
+            exit 1
+          fi
+          if [[ "$expected_assets_after" != "$expected_assets_before" ]]; then
             printf 'Tag, Draft Release, or macOS asset identity changed during Intel verification.\n' >&2
             exit 1
           fi
