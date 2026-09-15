@@ -22,9 +22,11 @@ itself does not authorize any of them.
 2. Run `Build and publish stable desktop release` with `publish` disabled to
    verify native Windows, Linux, and macOS packaging from the same commit.
 3. Create the exact stable tag `vX.Y.Z` at that verified commit.
-4. Run the workflow again from that tag with `publish` enabled.
-5. Approve Windows signing in the `stable-signing` environment and SignPath,
-   then approve GitHub publication in `stable-production`.
+4. Run the workflow again from that tag with `publish` enabled. Keep
+   `sign_windows` disabled for the intentionally unsigned `1.2.4` release.
+5. For `1.2.5` and later, enable `sign_windows`, approve Windows signing in the
+   `stable-signing` environment and SignPath, then approve GitHub publication
+   in `stable-production`.
 6. Allow the private Platform workflow to verify and atomically promote the
    immutable GitHub Release files. Never upload a locally built replacement.
 

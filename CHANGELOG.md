@@ -3,9 +3,9 @@
 <!-- Author/creator: nattapat2871 (https://nattapat2871.me) -->
 
 ## 1.2.4
-date: 2026-09-14
-status: release-candidate
-commit: e4dd58d46383c1e16c56f39f0a49833cf39b66cb
+date: 2026-09-15
+status: stable
+commit: 229a152c3a3f2b6da57d10408c3712ff81ccff20
 
 ### English
 
@@ -28,6 +28,16 @@ commit: e4dd58d46383c1e16c56f39f0a49833cf39b66cb
   supported companion versions.
 - Keeps error reports sanitized and routes only confirmed launcher failures
   through the configured private reporting service.
+- Completes drag-and-drop imports with visible per-file progress and a clear
+  success state instead of leaving the instance page spinning.
+- Keeps the minimize, maximize, and close controls visible when the launcher
+  window is narrowed.
+- Moves Windows installation and updates to Current User, safely migrates a
+  verified legacy All Users installation, and preserves the existing data path.
+- Shows the selected saved skin or official default skin head in Discord IPC
+  for Offline profiles, together with the Offline player name.
+- Publishes Windows, Linux, and macOS packages with SHA-256 sidecars and build
+  provenance. Version 1.2.4 is intentionally unsigned; SignPath starts in 1.2.5.
 
 ### ไทย
 
@@ -48,6 +58,15 @@ commit: e4dd58d46383c1e16c56f39f0a49833cf39b66cb
   รุ่นที่ยังดูแล ส่วนเป้าหมายรุ่นเก่ายังคงใช้ companion รุ่นเดิมที่รองรับ
 - ลดข้อมูลอ่อนไหวในรายงานข้อผิดพลาด และส่งเฉพาะปัญหาที่ลันเชอร์ยืนยันแล้ว
   ผ่านบริการรายงานส่วนตัวที่ตั้งค่าไว้
+- ทำให้การลากไฟล์เข้าอินสแตนซ์จบงานพร้อมแสดงความคืบหน้าทีละไฟล์และสถานะสำเร็จ
+  โดยไม่ค้างหมุนหลังนำเข้าเสร็จ
+- รักษาปุ่มย่อ ขยาย และปิดหน้าต่างให้มองเห็นได้เมื่อย่อความกว้างลันเชอร์
+- เปลี่ยนการติดตั้งและอัปเดต Windows เป็นแบบ Current User พร้อมย้ายการติดตั้ง
+  All Users รุ่นเก่าที่ตรวจสอบได้อย่างปลอดภัยและรักษาโฟลเดอร์ข้อมูลเดิม
+- แสดงหัวสกินที่บันทึกไว้หรือหัวสกินเริ่มต้นอย่างถูกต้องใน Discord IPC
+  สำหรับบัญชี Offline พร้อมชื่อผู้เล่น
+- เผยแพร่แพ็กเกจ Windows, Linux และ macOS พร้อมไฟล์ SHA-256 และหลักฐานที่มาของ build
+  โดย 1.2.4 ตั้งใจปล่อยแบบ unsigned และจะเริ่มใช้ SignPath ใน 1.2.5
 
 Older release history remains available in the archived legacy repository.
 

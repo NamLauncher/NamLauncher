@@ -41,7 +41,9 @@ Linux x64, and a macOS universal package from one immutable commit. A dry run
 only uploads short-lived GitHub Actions artifacts. Stable publication additionally
 requires an exact `vX.Y.Z` tag, SignPath approval for the Windows installer,
 successful SHA-256 and provenance checks, and approval through the protected
-`stable-production` GitHub environment.
+`stable-production` GitHub environment. Windows signing is an explicit release
+input: version `1.2.4` is published unsigned, while SignPath signing is reserved
+for `1.2.5` and later after the Foundation project is approved.
 
 Normal pushes and pull requests never publish downloads. Beta, alpha, and RC
 versions are rejected by the stable release workflow. Production download
