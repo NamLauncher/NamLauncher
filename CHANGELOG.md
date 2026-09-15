@@ -5,7 +5,7 @@
 ## 1.2.4
 date: 2026-09-15
 status: stable
-commit: 229a152c3a3f2b6da57d10408c3712ff81ccff20
+commit: 929588ad949b58e4cff49929334063f7beec06b6
 
 ### English
 
