@@ -119,6 +119,7 @@ import {
   AccountSessionExpiredPayload,
   CachedImage,
   ConfirmDialogState,
+  ContentImportProgress,
   ContentStatus,
   ContentUpdateItem,
   CurseForgeManualProjectType,
@@ -379,6 +380,9 @@ export const useLauncherController = () => {
   const [busyContentId, setBusyContentId] = useState<string | null>(null)
   const [contentDropActive, setContentDropActive] = useState(false)
   const [contentImporting, setContentImporting] = useState(false)
+  const [contentImportProgress, setContentImportProgress] = useState<ContentImportProgress | null>(null)
+  const contentImportRequestIdRef = useRef<string | null>(null)
+  const contentImportResetTimerRef = useRef<number | null>(null)
   const [selectedScreenshot, setSelectedScreenshot] = useState<InstanceContentItem | null>(null)
   const [screenshotZoom, setScreenshotZoom] = useState(1)
   const [screenshotPan, setScreenshotPan] = useState<ScreenshotPan>({ x: 0, y: 0 })
@@ -2031,6 +2035,20 @@ export const useLauncherController = () => {
   }, [])
 
   useEffect(() => {
+    const cleanup = window.electron.onInstanceContentImportProgress?.((nextProgress) => {
+      if (!nextProgress || nextProgress.requestId !== contentImportRequestIdRef.current) return
+      setContentImportProgress(nextProgress)
+    })
+
+    return () => {
+      cleanup?.()
+      if (contentImportResetTimerRef.current !== null) {
+        window.clearTimeout(contentImportResetTimerRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     const cleanupProgress = window.electron.onLaunchProgress((p) => {
       const launchProgressTypes = new Set([
         'java-setup',
@@ -3670,31 +3688,79 @@ export const useLauncherController = () => {
       return
     }
 
+    const target = currentTarget
+    const kind = contentTab
+    const requestId = globalThis.crypto?.randomUUID?.()
+      || `content-import-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    if (contentImportResetTimerRef.current !== null) {
+      window.clearTimeout(contentImportResetTimerRef.current)
+      contentImportResetTimerRef.current = null
+    }
+    contentImportRequestIdRef.current = requestId
+    setContentImportProgress({
+      requestId,
+      phase: 'copying',
+      completed: 0,
+      total: filePaths.length,
+      imported: 0,
+      skipped: 0,
+      rejected: 0
+    })
     setContentImporting(true)
     setContentDropActive(false)
     setStatusText(tf('content.import.status', { count: filePaths.length }))
 
     try {
       const result = await window.electron.importInstanceContentFiles({
-        instance: currentTarget,
-        kind: contentTab,
-        filePaths
+        instance: target,
+        kind,
+        filePaths,
+        requestId
       })
-      setInstanceContent(result.content)
-      updateInstanceContentCache(currentTarget.id, contentTab, result.content)
-      refreshUpdateSummaries([currentTarget]).catch(() => undefined)
+      if (currentContentTargetIdRef.current === target.id && currentContentTabRef.current === kind) {
+        setInstanceContent(result.content)
+      }
+      updateInstanceContentCache(target.id, kind, result.content)
+      refreshUpdateSummaries([target]).catch(() => undefined)
       const importedCount = result.imported.length
       const rejectedCount = result.rejected.length
       const skippedCount = result.skipped.length
+      setContentImportProgress({
+        requestId,
+        phase: 'complete',
+        completed: filePaths.length,
+        total: filePaths.length,
+        imported: importedCount,
+        skipped: skippedCount,
+        rejected: rejectedCount
+      })
       if (importedCount > 0) {
         setStatusText(tf('content.import.done', { count: importedCount, skipped: rejectedCount + skippedCount }))
       } else {
         setStatusText(rejectedCount > 0 ? tf('content.import.noneCompatible', { label: currentContentTab.label }) : t('content.import.none'))
       }
     } catch {
+      setContentImportProgress((current) => current?.requestId === requestId
+        ? { ...current, phase: 'error' }
+        : {
+            requestId,
+            phase: 'error',
+            completed: 0,
+            total: filePaths.length,
+            imported: 0,
+            skipped: 0,
+            rejected: filePaths.length
+          })
       setStatusText(t('status.droppedImportFailed'))
     } finally {
       setContentImporting(false)
+      contentImportResetTimerRef.current = window.setTimeout(() => {
+        if (contentImportRequestIdRef.current === requestId) {
+          contentImportRequestIdRef.current = null
+          setContentImportProgress(null)
+        }
+        contentImportResetTimerRef.current = null
+      }, 6_000)
     }
   }
 
@@ -3702,8 +3768,9 @@ export const useLauncherController = () => {
     if (!currentTarget || instancePanelView !== 'content') return
     if (!Array.from(event.dataTransfer.types).includes('Files')) return
     event.preventDefault()
-    event.dataTransfer.dropEffect = shouldBlockCurrentTargetContent(contentTab) ? 'none' : 'copy'
-    if (!contentDropActive) setContentDropActive(true)
+    const dropBlocked = contentImporting || shouldBlockCurrentTargetContent(contentTab)
+    event.dataTransfer.dropEffect = dropBlocked ? 'none' : 'copy'
+    if (!dropBlocked && !contentDropActive) setContentDropActive(true)
   }
 
   const handleContentDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
@@ -4388,6 +4455,7 @@ export const useLauncherController = () => {
     confirmOfflineLogin,
     connectLauncherDiscord,
     contentDropActive,
+    contentImportProgress,
     contentImporting,
     contentLoading,
     contentStatuses,

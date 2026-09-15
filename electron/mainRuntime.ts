@@ -481,7 +481,18 @@ export type InstanceContentRequest = {
   fileName?: string
   contentId?: string
   filePaths?: string[]
+  requestId?: string
   enabled?: boolean
+}
+
+export type InstanceContentImportProgress = {
+  requestId: string
+  phase: 'copying' | 'scanning'
+  completed: number
+  total: number
+  imported: number
+  skipped: number
+  rejected: number
 }
 
 export type InstanceUpdateRequest = {

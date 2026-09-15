@@ -169,6 +169,16 @@ export type InstanceContentItem = {
 
 export type InstanceContentCache = Record<string, Partial<Record<InstanceContentKind, InstanceContentItem[]>>>
 
+export type ContentImportProgress = {
+  requestId: string
+  phase: 'copying' | 'scanning' | 'complete' | 'error'
+  completed: number
+  total: number
+  imported: number
+  skipped: number
+  rejected: number
+}
+
 export type LauncherTheme = 'system' | 'dark' | 'light'
 
 export type LauncherSettings = {
@@ -606,7 +616,7 @@ declare global {
       getInstanceRunLog: (instance: Instance) => Promise<GameLogResult>
       toggleInstanceContent: (options: { instance: Instance; kind: InstanceContentKind; fileName: string; contentId: string; enabled: boolean }) => Promise<any>
       deleteInstanceContent: (options: { instance: Instance; kind: InstanceContentKind; fileName: string; contentId: string }) => Promise<any>
-      importInstanceContentFiles: (options: { instance: Instance; kind: InstanceContentKind; filePaths: string[] }) => Promise<{
+      importInstanceContentFiles: (options: { instance: Instance; kind: InstanceContentKind; filePaths: string[]; requestId: string }) => Promise<{
         success: boolean
         kind: InstanceContentKind
         imported: Array<{ sourcePath: string; filePath: string; fileName: string }>
@@ -614,6 +624,7 @@ declare global {
         rejected: Array<{ sourcePath: string; reason: string }>
         content: InstanceContentItem[]
       }>
+      onInstanceContentImportProgress?: (callback: (progress: ContentImportProgress) => void) => () => void
       revealInstanceContentFile: (options: { instance: Instance; kind: InstanceContentKind; fileName: string; contentId: string }) => Promise<{ success: boolean }>
       getDroppedFilePaths: (files: File[]) => string[]
       openInstanceFolder: (instance: Instance) => Promise<{ success: boolean }>

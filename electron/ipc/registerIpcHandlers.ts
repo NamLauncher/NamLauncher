@@ -639,8 +639,12 @@ export const registerIpcHandlers = (deps: IpcRegistrationDependencies) => {
     return deleteInstanceContent(request)
   })
 
-  trustedIpcHandle('import-instance-content-files', async (_event, request: InstanceContentRequest) => {
-    return importInstanceContentFiles(request)
+  trustedIpcHandle('import-instance-content-files', async (event, request: InstanceContentRequest) => {
+    return importInstanceContentFiles(request, (progress: any) => {
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('instance-content-import-progress', progress)
+      }
+    })
   })
 
   trustedIpcHandle('reveal-instance-content-file', async (_event, request: InstanceContentRequest) => {

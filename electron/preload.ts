@@ -219,6 +219,11 @@ contextBridge.exposeInMainWorld('electron', {
     ipcRenderer.on('launcher-error-report', listener)
     return () => ipcRenderer.removeListener('launcher-error-report', listener)
   },
+  onInstanceContentImportProgress: (callback: any) => {
+    const listener = (_event: Electron.IpcRendererEvent, progress: any) => callback(progress)
+    ipcRenderer.on('instance-content-import-progress', listener)
+    return () => ipcRenderer.removeListener('instance-content-import-progress', listener)
+  },
   onMinecraftGameIssue: (callback: any) => {
     const listener = (_event: Electron.IpcRendererEvent, issue: any) => callback(issue)
     ipcRenderer.on('minecraft-game-issue', listener)

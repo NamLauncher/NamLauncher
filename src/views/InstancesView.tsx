@@ -12,6 +12,8 @@ const getLoaderReleaseTone = (releaseType?: string) => {
 export function InstancesView({ model }: { model: any }) {
   const {
     CachedImage,
+    AlertTriangle,
+    CheckCircle2,
     Clock3,
     Download,
     FileArchive,
@@ -42,6 +44,7 @@ export function InstancesView({ model }: { model: any }) {
     checkingUpdates,
     classNames,
     contentDropActive,
+    contentImportProgress,
     contentImporting,
     contentLoading,
     contentTab,
@@ -116,6 +119,11 @@ export function InstancesView({ model }: { model: any }) {
     updatingInstanceLoader,
     updatingProjectIds
   } = model
+  const contentImportPercent = contentImportProgress
+    ? Math.min(100, Math.max(0, Math.round((contentImportProgress.completed / Math.max(1, contentImportProgress.total)) * 100)))
+    : 0
+  const contentImportComplete = contentImportProgress?.phase === 'complete'
+  const contentImportFailed = contentImportProgress?.phase === 'error'
 
   const loaderUpdateTone = getLoaderReleaseTone(currentTargetLoaderUpdate?.releaseType)
   const visibleUpdateCount = currentUpdateCount + (currentTargetLoaderUpdate ? 1 : 0)
@@ -508,10 +516,21 @@ export function InstancesView({ model }: { model: any }) {
                         onDragLeave={handleContentDragLeave}
                         onDrop={handleContentDrop}
                         className={classNames(
-                          'rounded-lg border border-transparent p-0 transition-colors duration-150',
+                          'relative rounded-lg border border-transparent p-0 transition-colors duration-150',
                           contentDropActive ? 'border-blue-300/45 bg-blue-500/[0.05]' : ''
                         )}
                       >
+                    {contentDropActive && (
+                      <div className="pointer-events-none absolute inset-0 z-40 flex min-h-72 flex-col items-center justify-center rounded-lg border-2 border-dashed border-blue-300/70 bg-[#09101f]/95 px-6 text-center shadow-2xl shadow-blue-950/50 backdrop-blur-md" role="status" aria-live="polite">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-500/15 text-blue-200 ring-1 ring-blue-300/35">
+                          <Upload size={26} />
+                        </div>
+                        <p className="mt-4 text-base font-black text-blue-100">{t('content.drop.overlayTitle')}</p>
+                        <p className="mt-1 max-w-md text-xs font-semibold leading-5 text-slate-400">
+                          {tf('content.drop.overlayBody', { folder: currentContentTab.folder })}
+                        </p>
+                      </div>
+                    )}
                     <div className="mb-4 flex rounded-lg border border-slate-800 bg-slate-950/30 p-1">
                       {instanceContentTabs.map((tab: any) => (
                         <button
@@ -559,27 +578,87 @@ export function InstancesView({ model }: { model: any }) {
                     </div>
 
                     <div className={classNames(
-                      'mb-4 flex items-center justify-between gap-3 rounded-lg border px-4 py-3',
-                      contentDropActive
-                        ? 'border-blue-300/45 bg-blue-500/10 text-blue-100'
-                        : 'border-slate-800 bg-slate-950/25 text-slate-500'
+                      'mb-4 rounded-lg border px-4 py-3 transition-colors duration-200',
+                      contentImportComplete
+                        ? 'border-emerald-400/45 bg-emerald-500/10 text-emerald-100'
+                        : contentImportFailed
+                          ? 'border-red-400/45 bg-red-500/10 text-red-100'
+                          : contentDropActive || contentImporting
+                            ? 'border-blue-300/45 bg-blue-500/10 text-blue-100'
+                            : 'border-slate-800 bg-slate-950/25 text-slate-500'
                     )}>
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/10 bg-slate-950/45">
-                          {contentImporting ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/10 bg-slate-950/45">
+                            {contentImportComplete
+                              ? <CheckCircle2 size={17} className="text-emerald-300" />
+                              : contentImportFailed
+                                ? <AlertTriangle size={17} className="text-red-300" />
+                                : contentImporting
+                                  ? <Loader2 size={16} className="animate-spin" />
+                                  : <Upload size={16} />}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-black text-slate-200">
+                              {contentImportComplete
+                                ? t('content.import.complete')
+                                : contentImportFailed
+                                  ? t('content.import.failed')
+                                  : contentImportProgress?.phase === 'scanning'
+                                    ? t('content.import.scanning')
+                                    : contentImporting
+                                      ? t('content.importing')
+                                      : tf('content.drop.title', { label: currentContentTab.label.toLowerCase() })}
+                            </p>
+                            <p className="mt-0.5 text-[11px] font-semibold text-slate-500">
+                              {contentImportComplete && contentImportProgress
+                                ? tf('content.import.done', {
+                                    count: contentImportProgress.imported,
+                                    skipped: contentImportProgress.skipped + contentImportProgress.rejected
+                                  })
+                                : contentImportFailed
+                                  ? t('status.droppedImportFailed')
+                                  : contentImportProgress?.phase === 'scanning'
+                                    ? t('content.import.scanningDetail')
+                                    : tf('content.drop.body', { folder: currentContentTab.folder })}
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-black text-slate-200">
-                            {contentImporting ? t('content.importing') : tf('content.drop.title', { label: currentContentTab.label.toLowerCase() })}
-                          </p>
-                          <p className="mt-0.5 text-[11px] font-semibold text-slate-500">
-                            {tf('content.drop.body', { folder: currentContentTab.folder })}
-                          </p>
-                        </div>
+                        <span className="hidden shrink-0 font-mono text-[11px] font-black uppercase text-slate-500 sm:block">
+                          {currentContentTab.folder}
+                        </span>
                       </div>
-                      <span className="hidden shrink-0 font-mono text-[11px] font-black uppercase text-slate-500 sm:block">
-                        {currentContentTab.folder}
-                      </span>
+                      {contentImportProgress && (
+                        <div className="mt-3">
+                          <div className="mb-1.5 flex items-center justify-between gap-3 text-[11px] font-black tabular-nums">
+                            <span>{tf('content.import.progress', {
+                              completed: contentImportProgress.completed,
+                              total: contentImportProgress.total
+                            })}</span>
+                            <span>{contentImportPercent}%</span>
+                          </div>
+                          <div
+                            className="h-2 overflow-hidden rounded-full bg-slate-950/70 ring-1 ring-white/10"
+                            role="progressbar"
+                            aria-label={t('content.import.progressLabel')}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={contentImportPercent}
+                          >
+                            <div
+                              className={classNames(
+                                'h-full rounded-full transition-[width,background-color] duration-300 ease-out',
+                                contentImportComplete
+                                  ? 'bg-emerald-400'
+                                  : contentImportFailed
+                                    ? 'bg-red-400'
+                                    : 'bg-blue-400'
+                              )}
+                              style={{ width: `${contentImportPercent}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="overflow-hidden rounded-lg border border-slate-800">

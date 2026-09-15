@@ -451,7 +451,7 @@ test('adds screenshots and drag-and-drop imports to instance content', () => {
   assert.match(mainSource, /type InstanceContentKind = 'mods' \| 'resourcepacks' \| 'shaderpacks' \| 'screenshots'/)
   assert.match(mainSource, /if \(kind === 'screenshots'\) return path\.join\(gameDirectory, 'screenshots'\)/)
   assert.match(mainSource, /kind === 'screenshots'[\s\S]*png\|jpe\?g\|webp/)
-  assert.match(mainSource, /const importInstanceContentFiles = \(request: InstanceContentRequest\) => \{/)
+  assert.match(mainSource, /const importInstanceContentFiles = async \([\s\S]*?request: InstanceContentRequest/)
   assert.match(mainSource, /trustedIpcHandle\('import-instance-content-files'/)
   assert.match(mainSource, /trustedIpcHandle\('reveal-instance-content-file'/)
   assert.match(mainSource, /const getInstanceContentId = \(contentDirectory: string, fileName: string\) =>/)

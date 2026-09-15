@@ -264,6 +264,7 @@ export const LauncherShell = ({ model }: LauncherShellProps) => {
     confirmOfflineLogin,
     connectLauncherDiscord,
     contentDropActive,
+    contentImportProgress,
     contentImporting,
     contentLoading,
     contentStatuses,
@@ -1651,6 +1652,8 @@ export const LauncherShell = ({ model }: LauncherShellProps) => {
 
             {activeView === 'instances' && <InstancesView model={{
               CachedImage,
+              AlertTriangle,
+              CheckCircle2,
               Clock3,
               Download,
               FileArchive,
@@ -1681,6 +1684,7 @@ export const LauncherShell = ({ model }: LauncherShellProps) => {
               checkingUpdates,
               classNames,
               contentDropActive,
+              contentImportProgress,
               contentImporting,
               contentLoading,
               contentTab,

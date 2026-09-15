@@ -36,6 +36,7 @@ import type {
   InstalledContentRecord,
   InstalledModrinthItem,
   InstanceContentKind,
+  InstanceContentImportProgress,
   InstanceContentManifest,
   InstanceContentRequest,
   LaunchRequest,
@@ -597,7 +598,10 @@ export const createContentService = (deps: ContentServiceDependencies) => {
     return path.basename(filename).replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').trim()
   }
 
-  const importInstanceContentFiles = (request: InstanceContentRequest) => {
+  const importInstanceContentFiles = async (
+    request: InstanceContentRequest,
+    onProgress?: (progress: InstanceContentImportProgress) => void
+  ) => {
     const instance = normalizeInstance({ instance: request.instance })
     const kind = normalizeContentKind(request.kind)
     assertInstanceContentMutable(instance, kind)
@@ -613,11 +617,27 @@ export const createContentService = (deps: ContentServiceDependencies) => {
 
     if (filePaths.length === 0) throw new Error('Drop one or more files to import.')
 
+    const requestId = String(request.requestId || '').trim().slice(0, 128)
     const imported: Array<{ sourcePath: string; filePath: string; fileName: string }> = []
     const skipped: Array<{ sourcePath: string; reason: string }> = []
     const rejected: Array<{ sourcePath: string; reason: string }> = []
+    const emitProgress = (phase: InstanceContentImportProgress['phase'], completed: number) => {
+      if (!requestId || !onProgress) return
+      onProgress({
+        requestId,
+        phase,
+        completed,
+        total: filePaths.length,
+        imported: imported.length,
+        skipped: skipped.length,
+        rejected: rejected.length
+      })
+    }
 
-    for (const sourcePath of filePaths) {
+    emitProgress('copying', 0)
+
+    for (let index = 0; index < filePaths.length; index += 1) {
+      const sourcePath = filePaths[index]
       try {
         const stat = fs.statSync(sourcePath)
         if (!stat.isFile()) {
@@ -650,7 +670,12 @@ export const createContentService = (deps: ContentServiceDependencies) => {
           reason: err instanceof Error ? err.message : 'Could not import file'
         })
       }
+
+      emitProgress('copying', index + 1)
+      await yieldToEventLoop()
     }
+
+    emitProgress('scanning', filePaths.length)
 
     return {
       success: imported.length > 0,
@@ -658,7 +683,7 @@ export const createContentService = (deps: ContentServiceDependencies) => {
       imported,
       skipped,
       rejected,
-      content: getInstanceContent({ instance, kind })
+      content: await getInstanceContent({ instance, kind })
     }
   }
 
