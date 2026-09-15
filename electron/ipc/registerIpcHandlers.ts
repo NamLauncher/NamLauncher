@@ -116,7 +116,7 @@ export const registerIpcHandlers = (deps: IpcRegistrationDependencies) => {
     minimizeLauncherForGame, getMicrosoftLoginFailureMessage, getMicrosoftRefreshToken,
     upsertAccount, createOfflineAuth, minimizeLauncherToTaskbar, requestAppQuit,
     closeLauncherWindow, logPath, openExternalUrl, confirmLauncherErrorReport,
-    writeWindowsBundleHealthMarker
+    writeWindowsBundleHealthMarker, runPendingWindowsScopeMigrationAfterRendererReady
   } = deps
 
   trustedIpcHandle('get-accounts', async () => {
@@ -319,6 +319,12 @@ export const registerIpcHandlers = (deps: IpcRegistrationDependencies) => {
     if (!isMainRendererInvocation(event)) return false
     log.info('--- NamLauncher renderer ready ---')
     writeWindowsBundleHealthMarker()
+    const migrationTimer = setTimeout(() => {
+      runPendingWindowsScopeMigrationAfterRendererReady().catch((error: unknown) => {
+        log.warn('Could not inspect the pending Windows installation migration.', error)
+      })
+    }, 750)
+    migrationTimer.unref?.()
     return true
   })
 
