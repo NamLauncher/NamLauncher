@@ -1,0 +1,49 @@
+# Author/creator: nattapat2871 (https://nattapat2871.me)
+name: Build Microsoft Store MSIX
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: microsoft-store-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NAMLAUNCHER_ERROR_REPORT_TOKEN: ${{ secrets.NAMLAUNCHER_ERROR_REPORT_TOKEN }}
+
+jobs:
+  store-msix:
+    name: Windows x64 Store package
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Build and validate unsigned Store package
+        env:
+          NAMLAUNCHER_STORE_IDENTITY_NAME: Nattapat2871.NamLauncher
+          NAMLAUNCHER_STORE_PUBLISHER: CN=1D87CE2F-D8CB-4D34-8B9A-CD416F0DDBD6
+          NAMLAUNCHER_STORE_PUBLISHER_DISPLAY_NAME: Nattapat2871
+          NAMLAUNCHER_STORE_OUTPUT: release-store
+        run: npm run dist:win:store
+      - name: Upload Store package and validation report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: NamLauncher-Microsoft-Store-MSIX
+          path: |
+            release-store/*.msix
+            release-store/*.msix.sha256
+            release-store/microsoft-store-package.json
+          if-no-files-found: error

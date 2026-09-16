@@ -3424,8 +3424,31 @@ const fetchLatestLauncherRelease = async () => {
   return response.data || {}
 }
 
+const getPackagedPackageType = () => {
+  try {
+    return fs.readFileSync(path.join(process.resourcesPath, 'package-type'), 'utf8').trim()
+  } catch {
+    return ''
+  }
+}
+
 const checkLauncherUpdate = async () => {
   const currentVersion = app.getVersion()
+  if (getPackagedPackageType() === 'microsoft-store') {
+    requiredLauncherUpdateVersion = null
+    return {
+      currentVersion,
+      latestVersion: currentVersion,
+      updateAvailable: false,
+      channel: 'microsoft-store',
+      downloadUrl: '',
+      installerSha256: null,
+      windowsBundleUrl: null,
+      windowsBundleSha256: null,
+      mandatory: false,
+      notes: ['Microsoft Store manages updates for this installation.']
+    }
+  }
   try {
     const release = await fetchLatestLauncherRelease()
 
@@ -4260,9 +4283,13 @@ const canEncryptAccountAuth = () => {
 }
 
 const getStartupUpdateTarget = () => {
-  let packageType = ''
-  try { packageType = fs.readFileSync(path.join(process.resourcesPath, 'package-type'), 'utf8').trim() } catch { /* Not a package-managed build. */ }
-  return selectStartupUpdateTarget(process.platform, process.arch, packageType, process.env.APPIMAGE || '', Boolean(process.env.FLATPAK_ID))
+  return selectStartupUpdateTarget(
+    process.platform,
+    process.arch,
+    getPackagedPackageType(),
+    process.env.APPIMAGE || '',
+    Boolean(process.env.FLATPAK_ID)
+  )
 }
 
 const startupUpdateAttemptPath = path.join(userDataPath, 'startup-update-attempt.json')

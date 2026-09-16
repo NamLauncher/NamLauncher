@@ -55,6 +55,11 @@ See [docs/architecture.md](docs/architecture.md) for repository ownership and
 The manual, approval-gated Windows signing preparation is documented in
 [docs/code-signing.md](docs/code-signing.md).
 
+The Microsoft Store package has a separate unsigned MSIX workflow that uses
+the product identity reserved in Partner Center. It builds and validates on
+pull requests and `main`, but never submits or publishes automatically. See
+[docs/microsoft-store.md](docs/microsoft-store.md).
+
 ### Unsigned macOS test build
 
 Run `npm run dist:mac` on macOS to create the free unsigned DMG used for local

@@ -128,6 +128,7 @@ test('Windows registry inspection still identifies Current User and legacy All U
 
 test('selects the installed platform and format instead of substituting AppImage for a package manager', () => {
   assert.equal(selectStartupUpdateTarget('win32', 'x64'), 'windows-x64')
+  assert.equal(selectStartupUpdateTarget('win32', 'x64', 'microsoft-store'), null)
   assert.equal(selectStartupUpdateTarget('darwin', 'arm64'), 'macos-universal')
   assert.equal(selectStartupUpdateTarget('darwin', 'x64'), 'macos-universal')
   assert.equal(selectStartupUpdateTarget('linux', 'x64', '', '/apps/NamLauncher.AppImage'), 'linux-appimage-x64')

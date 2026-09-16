@@ -4,7 +4,9 @@ node_modules/
 dist/
 dist-electron/
 release/
+release-store/
 .qa/
+build/appx/
 build/authlib-injector-*.jar
 build/authlib-injector-LICENSE.txt
 *.log
