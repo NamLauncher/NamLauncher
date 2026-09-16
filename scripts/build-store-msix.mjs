@@ -12,8 +12,8 @@ const powershellCommand = process.platform === 'win32' ? 'powershell.exe' : 'pws
 const packageVersion = JSON.parse(readFileSync('package.json', 'utf8')).version
 const outputDirectory = process.env.NAMLAUNCHER_STORE_OUTPUT
   || path.join(os.tmpdir(), `NamLauncher-${packageVersion}-store-msix`)
-const storeIdentityName = process.env.NAMLAUNCHER_STORE_IDENTITY_NAME || 'NamLauncher.Test'
-const storePublisher = process.env.NAMLAUNCHER_STORE_PUBLISHER || 'CN=Nattapat2871'
+const storeIdentityName = process.env.NAMLAUNCHER_STORE_IDENTITY_NAME || 'Nattapat2871.NamLauncher'
+const storePublisher = process.env.NAMLAUNCHER_STORE_PUBLISHER || 'CN=1D87CE2F-D8CB-4D34-8B9A-CD416F0DDBD6'
 const result = spawnSync(npmCommand, ['run', 'prepare:game-bridge'], {
   stdio: 'inherit',
   shell: process.platform === 'win32'
@@ -31,17 +31,16 @@ const assetsResult = spawnSync(powershellCommand, [
 ], { stdio: 'inherit', shell: false })
 if (assetsResult.status !== 0) process.exit(assetsResult.status || 1)
 
-const builder = process.platform === 'win32'
-  ? 'node_modules/.bin/electron-builder.cmd'
-  : 'node_modules/.bin/electron-builder'
-const packageResult = spawnSync(builder, [
+const builderCli = path.resolve('node_modules', 'electron-builder', 'cli.js')
+const packageResult = spawnSync(process.execPath, [
+  builderCli,
   '--config', 'packaging/store-appx.cjs',
   '--win', 'appx',
   '--x64',
   '--publish', 'never'
 ], {
   stdio: 'inherit',
-  shell: process.platform === 'win32',
+  shell: false,
   env: {
     ...process.env,
     NAMLAUNCHER_STORE_OUTPUT: outputDirectory,

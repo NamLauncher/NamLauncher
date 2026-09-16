@@ -52,6 +52,7 @@ if (Test-Path -LiteralPath $msixPath) { Remove-Item -LiteralPath $msixPath -Forc
 & $makeAppx pack /d $unpack /p $msixPath /o
 if ($LASTEXITCODE -ne 0) { throw "makeappx could not create the MSIX package" }
 
+Import-Module Microsoft.PowerShell.Security -ErrorAction Stop
 $signature = Get-AuthenticodeSignature -LiteralPath $msixPath
 if ($signature.Status -ne "NotSigned") { throw "Expected an unsigned Store package, got $($signature.Status)" }
 $sha256 = (Get-FileHash -LiteralPath $msixPath -Algorithm SHA256).Hash.ToLowerInvariant()

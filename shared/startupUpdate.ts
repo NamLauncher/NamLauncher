@@ -86,7 +86,7 @@ export const normalizeWindowsAutoInstallerStatus = (
 export const selectStartupUpdateTarget = (platform: string, arch: string, packageType = '', appImage = '', flatpak = false): StartupUpdateTarget | null => {
   if (platform === 'darwin' && ['x64', 'arm64'].includes(arch)) return 'macos-universal'
   if (arch !== 'x64') return null
-  if (platform === 'win32') return 'windows-x64'
+  if (platform === 'win32') return packageType === 'microsoft-store' ? null : 'windows-x64'
   if (platform !== 'linux' || flatpak) return null
   if (appImage) return 'linux-appimage-x64'
   if (packageType === 'deb') return 'linux-deb-x64'

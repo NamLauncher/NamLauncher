@@ -221,6 +221,7 @@
     "build": "tsc && vite build",
     "predist:win": "node scripts/assert-release-metadata.mjs && node scripts/assert-error-report-token.mjs && node scripts/assert-no-required-native-addons.mjs",
     "dist:win": "npm run prepare:game-bridge && npm run build && node scripts/verify-error-report-token-in-build.mjs && electron-builder --win nsis zip --x64 --publish never && node scripts/verify-windows-bundle-zip.mjs && node scripts/ensure-installer-icon.mjs && node scripts/stage-release-artifacts.mjs win",
+    "dist:win:store": "node scripts/build-store-msix.mjs",
     "dist:win:local": "npm run prepare:game-bridge && npm run build && node scripts/verify-error-report-token-in-build.mjs && electron-builder --win nsis zip --x64 --publish never && node scripts/verify-windows-bundle-zip.mjs && node scripts/ensure-installer-icon.mjs",
     "predist:linux": "node scripts/assert-release-metadata.mjs && node scripts/assert-error-report-token.mjs && node scripts/assert-no-required-native-addons.mjs",
     "dist:linux": "npm run prepare:game-bridge && npm run build && node scripts/verify-error-report-token-in-build.mjs && electron-builder --linux AppImage deb rpm flatpak pacman --x64 --publish never && node scripts/verify-linux-package-sandbox.mjs && node scripts/stage-release-artifacts.mjs linux",

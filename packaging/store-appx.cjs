@@ -9,8 +9,8 @@
 const packageJson = require('../package.json')
 
 const build = packageJson.build || {}
-const storeIdentityName = process.env.NAMLAUNCHER_STORE_IDENTITY_NAME || 'NamLauncher.Test'
-const storePublisher = process.env.NAMLAUNCHER_STORE_PUBLISHER || 'CN=Nattapat2871'
+const storeIdentityName = process.env.NAMLAUNCHER_STORE_IDENTITY_NAME || 'Nattapat2871.NamLauncher'
+const storePublisher = process.env.NAMLAUNCHER_STORE_PUBLISHER || 'CN=1D87CE2F-D8CB-4D34-8B9A-CD416F0DDBD6'
 const storePublisherDisplayName = process.env.NAMLAUNCHER_STORE_PUBLISHER_DISPLAY_NAME || 'Nattapat2871'
 
 module.exports = {
