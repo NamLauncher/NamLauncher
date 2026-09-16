@@ -41,6 +41,13 @@ if ($identity.Name -ne $ExpectedIdentity) { throw "Identity mismatch: $($identit
 if ($identity.Publisher -ne $ExpectedPublisher) { throw "Publisher mismatch: $($identity.Publisher)" }
 if ($identity.ProcessorArchitecture -ne "x64") { throw "Unexpected architecture: $($identity.ProcessorArchitecture)" }
 if ($identity.Version -notmatch '^\d+\.\d+\.\d+\.0$') { throw "Invalid Store version: $($identity.Version)" }
+$desktopTarget = @($manifest.Package.Dependencies.TargetDeviceFamily) |
+  Where-Object { $_.Name -eq "Windows.Desktop" } |
+  Select-Object -First 1
+if (-not $desktopTarget) { throw "Windows.Desktop target is missing" }
+if ([version]$desktopTarget.MinVersion -le [version]"10.0.17134.0") {
+  throw "Store MinVersion must be newer than 10.0.17134.0: $($desktopTarget.MinVersion)"
+}
 if (-not (Test-Path -LiteralPath (Join-Path $unpack "app\NamLauncher.exe"))) { throw "NamLauncher.exe is missing" }
 if (-not (Test-Path -LiteralPath (Join-Path $unpack "app\resources\package-type"))) { throw "Microsoft Store package marker is missing" }
 $packageType = (Get-Content -LiteralPath (Join-Path $unpack "app\resources\package-type") -Raw).Trim()
@@ -81,6 +88,9 @@ $summary = [ordered]@{
   identity = $identity.Name
   publisher = $identity.Publisher
   architecture = $identity.ProcessorArchitecture
+  targetDeviceFamily = $desktopTarget.Name
+  minVersion = $desktopTarget.MinVersion
+  maxVersionTested = $desktopTarget.MaxVersionTested
   signature = $signatureStatus
   sha256 = $sha256
 }

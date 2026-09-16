@@ -12,6 +12,7 @@ const build = packageJson.build || {}
 const storeIdentityName = process.env.NAMLAUNCHER_STORE_IDENTITY_NAME || 'Nattapat2871.NamLauncher'
 const storePublisher = process.env.NAMLAUNCHER_STORE_PUBLISHER || 'CN=1D87CE2F-D8CB-4D34-8B9A-CD416F0DDBD6'
 const storePublisherDisplayName = process.env.NAMLAUNCHER_STORE_PUBLISHER_DISPLAY_NAME || 'Nattapat2871'
+const storeMinimumWindowsVersion = '10.0.17763.0'
 
 module.exports = {
   ...build,
@@ -38,6 +39,8 @@ module.exports = {
     publisherDisplayName: storePublisherDisplayName,
     displayName: 'NamLauncher',
     backgroundColor: '#07111d',
+    minVersion: storeMinimumWindowsVersion,
+    maxVersionTested: '10.0.26100.0',
     showNameOnTiles: true,
     artifactName: 'NamLauncher-${version}-Microsoft-Store.${ext}'
   },

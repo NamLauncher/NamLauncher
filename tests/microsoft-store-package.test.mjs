@@ -18,6 +18,8 @@ test('uses the exact identity reserved in Microsoft Partner Center', () => {
   assert.equal(storeConfig.appx.publisher, 'CN=1D87CE2F-D8CB-4D34-8B9A-CD416F0DDBD6')
   assert.equal(storeConfig.appx.publisherDisplayName, 'Nattapat2871')
   assert.equal(storeConfig.appx.displayName, 'NamLauncher')
+  assert.equal(storeConfig.appx.minVersion, '10.0.17763.0')
+  assert.equal(storeConfig.appx.maxVersionTested, '10.0.26100.0')
   assert.equal(storeConfig.forceCodeSigning, false)
 })
 
@@ -34,6 +36,8 @@ test('builds, validates, and uploads the unsigned Store artifact in GitHub Actio
   assert.match(validator, /System\.Security\.Cryptography\.SHA256/)
   assert.doesNotMatch(validator, /Get-FileHash|Get-AuthenticodeSignature/)
   assert.match(validator, /Expected an unsigned Store package/)
+  assert.match(validator, /Store MinVersion must be newer than 10\.0\.17134\.0/)
+  assert.match(validator, /targetDeviceFamily = \$desktopTarget\.Name/)
 })
 
 test('marks Store builds and leaves their updates to Microsoft Store', () => {
