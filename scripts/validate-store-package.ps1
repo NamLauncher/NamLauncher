@@ -61,7 +61,17 @@ try {
   $archive.Dispose()
 }
 $signatureStatus = 'NotSigned'
-$sha256 = (Get-FileHash -LiteralPath $msixPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$hashStream = [System.IO.File]::OpenRead($msixPath)
+try {
+  $sha256Algorithm = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    $sha256 = [System.BitConverter]::ToString($sha256Algorithm.ComputeHash($hashStream)).Replace('-', '').ToLowerInvariant()
+  } finally {
+    $sha256Algorithm.Dispose()
+  }
+} finally {
+  $hashStream.Dispose()
+}
 "$sha256  $(Split-Path -Leaf $msixPath)" | Set-Content -LiteralPath "$msixPath.sha256" -Encoding ascii
 
 $summary = [ordered]@{
