@@ -52,9 +52,15 @@ if (Test-Path -LiteralPath $msixPath) { Remove-Item -LiteralPath $msixPath -Forc
 & $makeAppx pack /d $unpack /p $msixPath /o
 if ($LASTEXITCODE -ne 0) { throw "makeappx could not create the MSIX package" }
 
-Import-Module Microsoft.PowerShell.Security -ErrorAction Stop
-$signature = Get-AuthenticodeSignature -LiteralPath $msixPath
-if ($signature.Status -ne "NotSigned") { throw "Expected an unsigned Store package, got $($signature.Status)" }
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archive = [System.IO.Compression.ZipFile]::OpenRead($msixPath)
+try {
+  $signatureEntry = $archive.Entries | Where-Object { $_.FullName -ieq 'AppxSignature.p7x' } | Select-Object -First 1
+  if ($signatureEntry) { throw "Expected an unsigned Store package, but AppxSignature.p7x is present." }
+} finally {
+  $archive.Dispose()
+}
+$signatureStatus = 'NotSigned'
 $sha256 = (Get-FileHash -LiteralPath $msixPath -Algorithm SHA256).Hash.ToLowerInvariant()
 "$sha256  $(Split-Path -Leaf $msixPath)" | Set-Content -LiteralPath "$msixPath.sha256" -Encoding ascii
 
@@ -65,7 +71,7 @@ $summary = [ordered]@{
   identity = $identity.Name
   publisher = $identity.Publisher
   architecture = $identity.ProcessorArchitecture
-  signature = $signature.Status.ToString()
+  signature = $signatureStatus
   sha256 = $sha256
 }
 $summary | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output "microsoft-store-package.json") -Encoding utf8

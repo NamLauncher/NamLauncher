@@ -30,7 +30,7 @@ test('builds, validates, and uploads the unsigned Store artifact in GitHub Actio
   assert.match(workflow, /release-store\/\*\.msix/)
   assert.doesNotMatch(workflow, /contents:\s*write|gh release|Microsoft\.Store\/submission/)
   assert.match(buildHelper, /-OutputDirectory', outputDirectory/)
-  assert.match(validator, /Get-AuthenticodeSignature/)
+  assert.match(validator, /AppxSignature\.p7x/)
   assert.match(validator, /Expected an unsigned Store package/)
 })
 
